@@ -4,6 +4,7 @@
 ## Notes: Puts the reagent bag's slots into the combined bag window's own grid, right after the normal slots, each with a slot background in another colour. The slots stay Blizzard's own: using, dragging, splitting, selling, searching and sorting work as ever.
 ## Author: Purrdee
 ## X-License: MIT
+## X-Curse-Project-ID: 1705679
 ## IconTexture: Interface\AddOns\AKForeverBags\icon
 ## SavedVariables: AKForeverBagsDB
 ## OptionalDeps: AKForeverBags_SavedState
