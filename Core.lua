@@ -21,6 +21,7 @@ ns.version = (getMetadata and getMetadata(ADDON_NAME, "Version")) or "dev"
 if string.find(ns.version, "@", 1, true) then
     ns.version = "dev" -- a working copy: the packager has not replaced the @project-version@ token
 end
+ns.version = (string.gsub(ns.version, "^v", "")) -- release tags are "v0.2.0"; we print the "v" ourselves
 
 local PRINT_PREFIX = "|cff5fd38dForeverBags|r: "
 

@@ -569,6 +569,8 @@ scenario("diagnostics and logout run; the report is SavedVariables-safe and hold
 
     ns = start({ version = "@project-version@" }) -- a working copy: the TOC still holds the packager's token
     equal(ns.version, "dev")
+    ns = start({ version = "v0.2.0" }) -- a release: the packager stamps the tag's name
+    equal(ns.version, "0.2.0", "printed as v0.2.0, not vv0.2.0")
 end)
 
 Mock.realPrint(string.format("\n%d passed, %d failed", passed, #failures))
