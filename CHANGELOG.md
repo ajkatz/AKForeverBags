@@ -1,5 +1,9 @@
 # AKForeverBags
 
+## 0.2.1
+
+- Now on Wago Addons too. The addon itself is unchanged.
+
 ## 0.2.0 - first public release
 
 For **World of Warcraft: Forever** (1.60.1, Interface 16001).

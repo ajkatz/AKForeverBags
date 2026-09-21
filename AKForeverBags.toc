@@ -5,6 +5,7 @@
 ## Author: Purrdee
 ## X-License: MIT
 ## X-Curse-Project-ID: 1705679
+## X-Wago-ID: mNww4eNo
 ## IconTexture: Interface\AddOns\AKForeverBags\icon
 ## SavedVariables: AKForeverBagsDB
 ## OptionalDeps: AKForeverBags_SavedState

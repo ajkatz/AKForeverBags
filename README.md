@@ -26,7 +26,9 @@ clicks) next to what the client itself says the addon costs (`performance`: memo
 
 ## Install
 
-From CurseForge or Wago Addons (game version *World of Warcraft: Forever*), or unpack a release zip into
+From [CurseForge](https://www.curseforge.com/wow/addons/akforeverbags) or
+[Wago Addons](https://addons.wago.io/addons/akforeverbags) (game version *World of Warcraft: Forever*), or
+unpack a [release zip](https://github.com/ajkatz/AKForeverBags/releases) into
 `_classic_beta_\Interface\AddOns\`. It works out of the box; `/fbags` lists the commands.
 
 The 1.60.1 beta client writes addon settings on logout but never reads them back: changed settings last
