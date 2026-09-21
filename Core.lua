@@ -1,4 +1,4 @@
--- ForeverBags core: namespace, safe calls, event dispatch, message bus, saved variables,
+-- AKForeverBags core: namespace, safe calls, event dispatch, message bus, saved variables,
 -- session log and slash commands.
 --
 -- The mission of this addon family, built for the WoW: Forever game mode: minimalistic UI additions that bring out the utility Blizzard's UI does
@@ -23,7 +23,7 @@ if string.find(ns.version, "@", 1, true) then
 end
 ns.version = (string.gsub(ns.version, "^v", "")) -- release tags are "v0.2.0"; we print the "v" ourselves
 
-local PRINT_PREFIX = "|cff5fd38dForeverBags|r: "
+local PRINT_PREFIX = "|cff5fd38dAKForeverBags|r: "
 
 function ns:Print(...)
     local parts = {}
@@ -207,16 +207,16 @@ local function characterKey()
 end
 
 local function initDB()
-    local bridge = ForeverBags_SavedStateBridge
-    if type(ForeverBagsDB) ~= "table" then
-        ForeverBagsDB = {}
+    local bridge = AKForeverBags_SavedStateBridge
+    if type(AKForeverBagsDB) ~= "table" then
+        AKForeverBagsDB = {}
         ns.savedStateSource = "none (first run, or the client did not load it)"
-    elseif type(bridge) == "table" and bridge.table == ForeverBagsDB then
+    elseif type(bridge) == "table" and bridge.table == AKForeverBagsDB then
         ns.savedStateSource = "bridge addon"
     else
         ns.savedStateSource = "client"
     end
-    local db = ForeverBagsDB
+    local db = AKForeverBagsDB
 
     db.schema = db.schema or 1
     db.loads = (db.loads or 0) + 1
@@ -257,10 +257,10 @@ function ns:RegisterCommand(name, help, fn)
     commandOrder[#commandOrder + 1] = name
 end
 
-SLASH_FOREVERBAGS1 = "/foreverbags"
-SLASH_FOREVERBAGS2 = "/fbags"
-SLASH_FOREVERBAGS3 = "/fbg"
-SlashCmdList["FOREVERBAGS"] = function(message)
+SLASH_AKFOREVERBAGS1 = "/akforeverbags"
+SLASH_AKFOREVERBAGS2 = "/fbags"
+SLASH_AKFOREVERBAGS3 = "/fbg"
+SlashCmdList["AKFOREVERBAGS"] = function(message)
     local name, rest = string.match(message or "", "^%s*(%S*)%s*(.-)%s*$")
     local command = commands[string.lower(name or "")]
     if command then

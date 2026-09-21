@@ -246,7 +246,7 @@ end
 ------------------------------------------------------------------------
 local function ensureBackdrop(combined)
     if not backdrop then
-        backdrop = CreateFrame("Frame", "ForeverBagsReagentSlots", combined)
+        backdrop = CreateFrame("Frame", "AKForeverBagsReagentSlots", combined)
         backdrop.slots = {}
     end
     if backdrop:GetParent() ~= combined then
@@ -442,7 +442,7 @@ end
 ------------------------------------------------------------------------
 -- The backpack key -> Blizzard's "Open All Bags"
 ------------------------------------------------------------------------
-local keyOwner = CreateFrame("Frame", "ForeverBagsKeyOwner")
+local keyOwner = CreateFrame("Frame", "AKForeverBagsKeyOwner")
 
 local function wantedKeys()
     if not (ns:GetOption("merge") and ns:GetOption("backpackKeyOpensAll") and usingCombinedBags()) then

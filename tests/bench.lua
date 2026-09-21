@@ -1,4 +1,4 @@
--- ForeverBags work meter. Run from the repo root:  lua tests/bench.lua
+-- AKForeverBags work meter. Run from the repo root:  lua tests/bench.lua
 -- Counts, per player action, what the addon does: how often its layout pass runs, how many questions it
 -- asks Blizzard's frames (reads), how many things it changes on them (writes), how much garbage it makes
 -- and how long it takes here (plain Lua on this machine - a relative number, not the game's).
@@ -21,7 +21,7 @@ local function measure(label, action, repeats)
         label, (applies - applies0) / repeats, (Mock.reads - reads0) / repeats, (#Mock.touched - writes0) / repeats, kb / repeats, seconds * 1000 / repeats))
 end
 
-Mock.realPrint("ForeverBags work per action (44 normal slots, 4 reagent slots)")
+Mock.realPrint("AKForeverBags work per action (44 normal slots, 4 reagent slots)")
 measure("open all bags (B)", function() Mock.openAllBags(); Mock.closeAllBags() end)
 Mock.openAllBags()
 measure("click an item in the bag window", function() Mock.clickInBagWindow(3); Mock.advance(0.02) end, 200)

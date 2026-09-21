@@ -1,6 +1,6 @@
 # Marketplace listing text (copy / paste)
 
-**Name:** ForeverBags
+**Name:** AKForeverBags
 **Category:** Bags & Inventory
 **Game version:** World of Warcraft: Forever (1.60.1)
 **License:** MIT
@@ -12,7 +12,7 @@
 Blizzard's UI does not give - minimal in nature, no Lua errors, always smooth.*
 
 WoW: Forever gives you a reagent bag slot - but its contents always open in a separate little window next
-to your bags. **ForeverBags puts those slots into the combined bag window's own grid**, right after your
+to your bags. **AKForeverBags puts those slots into the combined bag window's own grid**, right after your
 normal slots, each with a green slot background so you can tell them apart.
 
 - **Nothing is re-implemented.** The slots are Blizzard's own item buttons, only moved: using, dragging,
@@ -41,5 +41,5 @@ until you log out. The defaults (everything on) need no settings.
 
 ## Logo and screenshots
 
-Logo (400 x 400): `..\ForeverBranding\out\ForeverBags\logo-400.png` (master: `logo-1024.png`).
+Logo (400 x 400): `..\ForeverBranding\out\AKForeverBags\logo-400.png` (master: `logo-1024.png`).
 Screenshot to take in game: the open bag window with the green reagent slots in the grid.

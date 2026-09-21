@@ -1,4 +1,4 @@
--- Strict stand-in for the WoW client, enough to run ForeverBags under a plain Lua interpreter.
+-- Strict stand-in for the WoW client, enough to run AKForeverBags under a plain Lua interpreter.
 -- Same design as the other addons' mocks. What it models of Blizzard's side:
 --
 --  * the bag windows of Blizzard_UIPanels_Game/Mainline/ContainerFrame.lua as far as the addon relies
@@ -16,7 +16,7 @@
 local Mock = {}
 
 local REAL_PRINT = print
-local ADDON = "ForeverBags"
+local ADDON = "AKForeverBags"
 
 Mock.SECRET = setmetatable({}, { __tostring = function() return "<SECRET>" end })
 
@@ -574,7 +574,7 @@ function Mock.install(options)
         end
         -- The bag bar's reagent bag button: a click toggles that bag's window (ToggleBag(5)) - unless a frame
         -- of the addon's lies over it and takes the click.
-        -- The bag bar. Stock: a thing of its own on UIParent. With ForeverActionBars' docking (the default
+        -- The bag bar. Stock: a thing of its own on UIParent. With AKForeverActionBars' docking (the default
         -- here - it is how the author plays) it is a child of the combined bag window, and so part of ITS unit.
         local bagsBar = newBlizzardFrame("Frame", "BagsBar", options.stockBagBar and G.UIParent or combined)
         global("BagsBar", bagsBar)
@@ -753,9 +753,9 @@ function Mock.install(options)
     end)
 
     -- Saved variables, as the bridge addon leaves them
-    G.ForeverBagsDB, G.ForeverBags_SavedStateBridge = options.db, options.bridge
-    Mock.globalNames[#Mock.globalNames + 1] = "ForeverBagsDB"
-    Mock.globalNames[#Mock.globalNames + 1] = "ForeverBags_SavedStateBridge"
+    G.AKForeverBagsDB, G.AKForeverBags_SavedStateBridge = options.db, options.bridge
+    Mock.globalNames[#Mock.globalNames + 1] = "AKForeverBagsDB"
+    Mock.globalNames[#Mock.globalNames + 1] = "AKForeverBags_SavedStateBridge"
 
     local root = options.root or "."
     local ns = {}
@@ -763,7 +763,7 @@ function Mock.install(options)
         local chunk = assert(loadfile(root .. "/" .. file))
         chunk(ADDON, ns)
     end
-    for _, name in ipairs({ "SLASH_FOREVERBAGS1", "SLASH_FOREVERBAGS2", "SLASH_FOREVERBAGS3" }) do
+    for _, name in ipairs({ "SLASH_AKFOREVERBAGS1", "SLASH_AKFOREVERBAGS2", "SLASH_AKFOREVERBAGS3" }) do
         Mock.globalNames[#Mock.globalNames + 1] = name
     end
     Mock.ns = ns

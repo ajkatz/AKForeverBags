@@ -25,11 +25,11 @@ jobs:
             echo "== $zip"
             unzip -l "$zip"
             echo "== the TOC inside"
-            unzip -p "$zip" ForeverBags/ForeverBags.toc
+            unzip -p "$zip" AKForeverBags/AKForeverBags.toc
           done
       - uses: actions/upload-artifact@v4
         with:
-          name: ForeverBags-package-check
+          name: AKForeverBags-package-check
           path: .release/*.zip
           include-hidden-files: true # (.release is a dot folder)
           retention-days: 7

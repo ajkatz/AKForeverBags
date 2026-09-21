@@ -1,5 +1,5 @@
 -- /fbags diag: a report of what this client does with the bag windows, saved with the settings
--- (ForeverBagsDB.diag) so that it can be read from the SavedVariables file after a /reload or logout.
+-- (AKForeverBagsDB.diag) so that it can be read from the SavedVariables file after a /reload or logout.
 -- Read-only on Blizzard's side; nothing here looks at a value before ns.IsSecret cleared it.
 local _, ns = ...
 
@@ -145,7 +145,7 @@ function Diagnostics:Collect()
     for bag = 0, 5 do
         report.bagSlots[tostring(bag)] = ask(C_Container and C_Container.GetContainerNumSlots, bag)
     end
-    for _, name in ipairs({ "ContainerFrameCombinedBags", "ContainerFrame6", "ForeverBagsReagentSlots" }) do
+    for _, name in ipairs({ "ContainerFrameCombinedBags", "ContainerFrame6", "AKForeverBagsReagentSlots" }) do
         local window = _G[name]
         if type(window) == "table" and type(window.GetPoint) == "function" then
             report.windows[name] = describeWindow(window)

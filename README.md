@@ -1,4 +1,4 @@
-# ForeverBags
+# AKForeverBags
 
 Bag window fixes for **World of Warcraft: Forever** (Interface `16001`).
 
@@ -39,7 +39,7 @@ Forever has a reagent bag slot - but Blizzard's combined bag view only takes the
 (`ContainerFrame_IsGenericHeldBag`). The reagent bag, bag 5, always gets a window of its own
 (`ContainerFrame6`), opened next to the combined window by *Open All Bags*.
 
-ForeverBags puts its slots **into the combined window's grid, as a continuation of the normal slots**, and
+AKForeverBags puts its slots **into the combined window's grid, as a continuation of the normal slots**, and
 gives each of them a **slot background in another colour** (green; with a thin rim that still shows around
 an item). No section of their own, no header: Blizzard fills its grid from the bottom right, which leaves
 the left end of the top row empty - the reagent slots take those cells, then rows of their own on top, and
@@ -88,11 +88,11 @@ button going down anywhere in the combined window's unit raises it over the reag
 over the reagent slots standing in its grid: items gone, our slot backgrounds (the combined window's
 children) still there, the mouse no longer reaching the slots. The key ring is merely the one bag bar button
 whose click leaves the bags open - and an addon that docks the bag bar *into* the bag window
-(ForeverActionBars does) makes it part of that unit.
+(AKForeverActionBars does) makes it part of that unit.
 
 The way back is the call Blizzard's own code makes whenever a bag window opens
 (`ContainerFrame_GenerateFrame`: `frame:Raise()`) - the reason the slots *are* in front right after *Open
-All Bags*. ForeverBags makes it (on the reagent window, and on its toplevel parent) when the slots are
+All Bags*. AKForeverBags makes it (on the reagent window, and on its toplevel parent) when the slots are
 merged, after every `UpdateContainerFrameAnchors`, and on `GLOBAL_MOUSE_DOWN` / `_UP` over anything in the
 bag window - at once and once more a frame later, in case the client raises after it has told us (a held
 button is a drag: the slots must be there to be dropped on). Nothing is raised while nothing happens, so a
@@ -115,7 +115,7 @@ the same frame (no flicker). Every call site of `UpdateItemLayout()` in that fil
 * calling Blizzard's bag functions (`OpenBag`, `ToggleAllBags`, `frame:Update` ...): run by an addon they
   write tainted values into the bag frames;
 * re-parenting an item button (its code asks `self:GetParent()` for bag window methods - the lesson of
-  ForeverCombatTimers' target cast bar);
+  AKForeverCombatTimers' target cast bar);
 * showing / hiding a bag window, `SetScript` / `HookScript` on Blizzard's frames, writing any field on them.
 
 That is why the **backpack key** gets an override binding to Blizzard's own *Open All Bags* command: the
