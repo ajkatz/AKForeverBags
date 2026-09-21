@@ -8,7 +8,7 @@
 
 ## Description
 
-*Part of a small family of addons with one mission: minimalistic UI additions that bring out the utility
+*Part of a small family of addons built for the WoW: Forever game mode, with one mission: minimalistic UI additions that bring out the utility
 Blizzard's UI does not give - minimal in nature, no Lua errors, always smooth.*
 
 WoW: Forever gives you a reagent bag slot - but its contents always open in a separate little window next

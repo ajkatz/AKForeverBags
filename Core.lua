@@ -1,7 +1,7 @@
 -- ForeverBags core: namespace, safe calls, event dispatch, message bus, saved variables,
 -- session log and slash commands.
 --
--- The mission of this addon family: minimalistic UI additions that bring out the utility Blizzard's UI does
+-- The mission of this addon family, built for the WoW: Forever game mode: minimalistic UI additions that bring out the utility Blizzard's UI does
 -- not give - minimal in nature, no Lua errors, always smooth. So: nothing runs on a timer, every entry
 -- point goes through ns.SafeCall, and every error or blocked action is kept for /fbags diag.
 --

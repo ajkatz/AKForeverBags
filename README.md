@@ -2,7 +2,7 @@
 
 Bag window fixes for **World of Warcraft: Forever** (Interface `16001`).
 
-> Part of a small family of addons with one mission: **minimalistic UI additions that bring out the utility
+> Part of a small family of addons built for the **WoW: Forever** game mode, with one mission: **minimalistic UI additions that bring out the utility
 > Blizzard's UI does not give - minimal in nature, no Lua errors, always smooth.**
 
 Status (2026-09-20): proven in the game - reagent slots in cells 45-48 of Blizzard's own top row, merged in
