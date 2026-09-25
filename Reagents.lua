@@ -308,8 +308,14 @@ local function setGrowth(combined, growth)
     end
     local current = height[1]
     local oursNow = appliedHeight ~= nil and math.abs(current - appliedHeight) < 0.5
-    if not oursNow and not (sizeHooked and baseHeight) then
-        baseHeight = current -- no hook to tell us: a height we did not set is Blizzard's
+    -- Blizzard's own height is whatever the window has that we did not set: this pass runs after every
+    -- resize of Blizzard's (the anchors function is called on opening and after a bag swap alike), so a
+    -- height that is not ours is the new base. NOT a hook on the window's UpdateFrameSize METHOD - on
+    -- build 70009 a hooksecurefunc on a frame method breaks the method for Blizzard's own calls ("attempt
+    -- to call a nil value" at every opening, measured 2026-09-25) - and not a hook on the global that
+    -- opens a bag either, which never sees a swap. Nothing of Blizzard's is run from here.
+    if not oursNow then
+        baseHeight = current
     end
     if not baseHeight then
         return false
@@ -511,14 +517,8 @@ ns:Listen("LOGIN", function()
             hooksecurefunc("UpdateContainerFrameAnchors", apply)
             anchorsHooked = true
         end
-        local combined = _G.ContainerFrameCombinedBags
-        if isFrame(combined) and type(combined.UpdateFrameSize) == "function" then
-            hooksecurefunc(combined, "UpdateFrameSize", function(window)
-                local height = ns.Readable(window.GetHeight, window)
-                baseHeight = height and type(height[1]) == "number" and height[1] or nil -- Blizzard's own height, just set
-            end)
-            sizeHooked = true
-        end
+        -- The window's own height is never hooked for - see the height decision above.
+        sizeHooked = false
     end
     Reagents.hooks = { anchors = anchorsHooked, size = sizeHooked }
     ns.SafeCall(Reagents.ApplyKeys, Reagents)

@@ -465,11 +465,9 @@ function Mock.install(options)
             return rowsHeight(state.bagSlots, 10) + 75 + 13 + 12
         end
         Mock.combinedHeight = combinedHeight
-        if not options.noSizeMethod then
-            rawset(combined, "UpdateFrameSize", blizzardFunction("UpdateFrameSize", function(self)
-                self:SetSize(430, combinedHeight())
-            end))
-        end
+        rawset(combined, "UpdateFrameSize", blizzardFunction("UpdateFrameSize", function(self)
+            self:SetSize(430, combinedHeight())
+        end))
         rawset(reagent, "UpdateFrameSize", blizzardFunction("UpdateFrameSize", function(self)
             self:SetSize(178, rowsHeight(math.max(1, state.reagentSlots), 4) + 57)
         end))
@@ -523,7 +521,16 @@ function Mock.install(options)
             end
         end))
 
-        local function generate(window, bag)
+        local generate -- (defined just below; the global that Blizzard calls wraps it)
+        local function generateViaBlizzard(window, bag)
+            local fn = G.ContainerFrame_GenerateFrame -- looked up at call time: a hooksecurefunc wrapper is what runs
+            if fn then
+                fn(window, 0, bag)
+            else
+                generate(window, bag)
+            end
+        end
+        function generate(window, bag)
             window:SetID(bag)
             if window.UpdateItemSlots then
                 window:UpdateItemSlots()
@@ -540,6 +547,10 @@ function Mock.install(options)
             end
             G.UpdateContainerFrameAnchors()
         end
+        -- ContainerFrame_GenerateFrame(frame, size, id): what Blizzard calls to open a bag; sizes it on the way
+        G.ContainerFrame_GenerateFrame = blizzardFunction("ContainerFrame_GenerateFrame", function(window, _, bag)
+            generate(window, bag)
+        end)
         local function close(window)
             if window.__shown then
                 window:Hide()
@@ -547,7 +558,7 @@ function Mock.install(options)
             end
         end
         function Mock.openBackpack() -- ToggleBackpack_Combined: the combined window only
-            Mock.asBlizzard(function() generate(combined, 0) end)
+            Mock.asBlizzard(function() generateViaBlizzard(combined, 0) end)
         end
         function Mock.openAllBags() -- OpenAllBagsInternal: the combined window, then every other bag - the reagent bag
             Mock.asBlizzard(function()
@@ -555,10 +566,10 @@ function Mock.install(options)
                     return
                 end
                 if not combined.__shown then
-                    generate(combined, 0)
+                    generateViaBlizzard(combined, 0)
                 end
                 if state.reagentSlots > 0 and not reagent.__shown then
-                    generate(reagent, 5)
+                    generateViaBlizzard(reagent, 5)
                 end
             end)
         end
@@ -570,7 +581,7 @@ function Mock.install(options)
         end
         function Mock.resizeBags(slots) -- a bag was swapped while the windows are open: Blizzard sizes and lays out again
             state.bagSlots = slots
-            Mock.asBlizzard(function() generate(combined, 0) end)
+            Mock.asBlizzard(function() generateViaBlizzard(combined, 0) end)
         end
         -- The bag bar's reagent bag button: a click toggles that bag's window (ToggleBag(5)) - unless a frame
         -- of the addon's lies over it and takes the click.
@@ -700,7 +711,7 @@ function Mock.install(options)
                 if reagent.__shown then
                     close(reagent)
                 else
-                    generate(reagent, 5)
+                    generateViaBlizzard(reagent, 5)
                 end
             end)
             return "Blizzard's button toggled the reagent bag"

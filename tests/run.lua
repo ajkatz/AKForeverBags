@@ -172,7 +172,7 @@ scenario("the window's own height is never lost: full top row, a bag swapped whi
     equal(ns.Reagents.state, "merged: 8 reagent slots after Blizzard's 52, no extra row")
     equal(ContainerFrameCombinedBags:GetHeight(), Mock.combinedHeight(), "not a pixel taller")
 
-    -- a client whose window has no UpdateFrameSize to hook: the height is worked out instead
+    -- the height is always worked out from the window: nothing of Blizzard's is hooked or run for it
     ns = start({ noSizeMethod = true })
     equal(ns.Reagents.hooks.size, false)
     for _ = 1, 3 do
@@ -558,7 +558,7 @@ scenario("diagnostics and logout run; the report is SavedVariables-safe and hold
     end
     assertPlain(report, "diag")
     equal(report.reagents.moved, 12); equal(report.reagents.keys, "B"); check(report.reagents.raises >= 1)
-    equal(report.reagents.hooks.anchors, true); equal(report.reagents.hooks.size, true)
+    equal(report.reagents.hooks.anchors, true); equal(report.reagents.hooks.size, false, "never hooked: see Reagents.lua")
     equal(report.bagSlots["5"], 12)
     equal(report.windows.ContainerFrame6.itemButtons, 12)
     equal(report.windows.ContainerFrame6.samples[1].anchor.relativeTo, "ContainerFrameCombinedBagsMoneyFrame")
