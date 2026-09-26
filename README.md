@@ -5,7 +5,8 @@ Bag window fixes for **World of Warcraft: Forever** (Interface `16001`).
 > Part of a small family of addons built for the **WoW: Forever** game mode, with one mission: **minimalistic UI additions that bring out the utility
 > Blizzard's UI does not give - minimal in nature, no Lua errors, always smooth.**
 
-Status (2026-09-20): proven in the game - reagent slots in cells 45-48 of Blizzard's own top row, merged in
+Status: **0.3.0 (2026-09-26)** docks the bag buttons under the bag window (see below; 25 scenarios, not yet checked in
+the game). 0.2.x, proven in the game - reagent slots in cells 45-48 of Blizzard's own top row, merged in
 and out of fights, the "key ring" bug fixed and confirmed, 0 errors and 0 blocked actions in every report.
 Then trimmed to the mission: **no timers, no polling** (the addon only runs when Blizzard lays out a bag
 window, on a mouse button in the bag window, on an option change and at the end of a fight), nothing of ours
@@ -134,6 +135,40 @@ waits for the end of the fight).
 Known limits: Blizzard works out the bag windows' scale and columns before our extra rows are added (only
 matters when the bag window nearly fills the screen's height), and while the bank is open it still
 reserves a column for the parked reagent window.
+
+## The bag buttons, docked under the bag window (0.3.0)
+
+On Forever a bag is swapped by dropping the new one on a **bag slot button** - and those only exist on
+Blizzard's bag bar (`BagsBar`, bottom right next to the micro menu); the combined bag window has no bag slots
+of its own (its header is search box + sort button; Blizzard's `GamepadBagBar` lives in that header, but only
+in gamepad mode, which removes those two). Whoever puts Blizzard's bottom fixtures away - AKForeverActionBars
+parks its action bars and micro menu - is left with the bar floating on its own, or, hidden, with no way to
+swap a bag. So the bar is **docked**: made a child of the combined bag window, hanging under its right end,
+with a little arrow of ours beside it that folds it away and brings it back. It shows, hides and scales with
+your bags by itself, and every button on it is still Blizzard's own.
+
+| | |
+|---|---|
+| `/fbags bagbar window\|show\|hide` | `window` (default): docked under the bag window; with separate bag windows (combined view off) it shows in Blizzard's place while a bag is open. `show`: Blizzard's place, always. `hide`: never |
+| `/fbags bagbar fold\|unfold` | what the arrow under the bag window's right corner does. Remembered over a logout |
+
+How, within this addon's rules: `SetParent` and the raw `ClearAllPointsBase` / `SetPointBase` only - the bar is
+an Edit Mode system whose `SetPoint` and `ClearAllPoints` are Lua overrides doing Edit Mode bookkeeping, and
+addon code running those writes tainted values into Edit Mode; nothing is written on the frame; and no timer:
+the arrangement is re-applied from the same `UpdateContainerFrameAnchors` post-hook that places the reagent
+slots, from the two full-screen panel hooks (Blizzard moves the bag windows and the bag bar onto a full-screen
+panel while one is open, `ReparentContainerFrames`), on Edit Mode layouts, when the combined-bags setting
+changes and at login - never while Edit Mode is open, where the bar is yours to drag. Checked in Blizzard's
+source first: the bar's code never asks for its parent, the bag windows anchor to the screen and not to the
+bar (no circular anchor), Blizzard keeps 85 px free under the first bag window (`CONTAINER_OFFSET_Y`) and the
+bar is 45 high. "Blizzard's place" is the last parent / anchor seen that was not ours, so `show` respects
+where Edit Mode put the bar. While Blizzard's own main action bar is on the screen the bar is never docked:
+that bar's right end cap is anchored to it (`EndCapRight -> BagsBar` in the Edit Mode presets) and would
+wander off with it. Worked out and proven in the game as part of AKForeverActionBars 0.5.5 - 0.5.6; moved
+here in 0.3.0 because it is about bags (that addon leaves the bar alone while this one runs).
+
+To take a bag OFF without the buttons: `/run PickupBagFromSlot(C_Container.ContainerIDToInventoryID(4)) PutItemInBackpack()`
+(bag 1-4 counted from the backpack, the bag must be empty) - what Blizzard's own "Unequip Bag" menu entry runs.
 
 ## Development
 

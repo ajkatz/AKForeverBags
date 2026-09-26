@@ -364,7 +364,7 @@ scenario("the bag bar's reagent bag button stays Blizzard's: nothing of ours cov
     equal(ns.Reagents.moved, 12, "a second click brings them back")
     equal(Mock.reagentSlotsSeen(), 12, "in front of the bag window")
 
-    ns = start({ stockBagBar = true }) -- Blizzard's bag bar in its own place (no AKForeverActionBars docking): the same
+    ns = start({ stockBagBar = true }) -- Blizzard's bag bar in its own place ('/fbags bagbar show'): the same
     Mock.openAllBags()
     equal(Mock.clickReagentBagButton(), "Blizzard's button toggled the reagent bag")
     equal(ns.Reagents.moved, 0)
@@ -384,7 +384,7 @@ for _, order in ipairs({
 
         Mock.clickKeyRing() -- showKeyring = 0: no window opens, not one line of Blizzard's Lua changes anything - only the press
         Mock.advance(0.01)
-        equal(Mock.reagentSlotsSeen(), 12, "the key ring (docked into the bag window by AKForeverActionBars: part of its unit)")
+        equal(Mock.reagentSlotsSeen(), 12, "the key ring (docked into the bag window by this addon: part of its unit)")
         check(ns.Reagents.raises > before, "by raising the reagent window the way Blizzard's code does when it opens")
         equal(ns.Reagents.state, "merged: 12 reagent slots after Blizzard's 56, 1 more row")
 
@@ -536,6 +536,144 @@ scenario("the performance promise, as budgets: idle costs nothing, a click only 
     SlashCmdList.AKFOREVERBAGS("diag")
     equal(AKForeverBagsDB.diag.work.layoutPasses, ns.Reagents.work.layoutPasses)
     check(type(AKForeverBagsDB.diag.performance) == "table", "and the report asks the client what the addon costs")
+end)
+
+scenario("the bag buttons are docked under the bag window - that is where a bag gets swapped - with the raw methods; Edit Mode has it while open; show / hide / window", function()
+    local ns = start()
+    local window = ContainerFrameCombinedBags
+    local function anchor() return { BagsBar:GetPoint(1) } end
+    equal(BagsBar:GetParent(), window, "a child of the combined bag window: shows and hides with your bags by itself")
+    equal(anchor()[1], "TOPRIGHT"); equal(anchor()[2], window); equal(anchor()[3], "BOTTOMRIGHT", "hanging under its right end")
+    -- Blizzard keeps 85 px free under the first bag window (CONTAINER_OFFSET_Y); the bar is 45 high
+    check(anchor()[5] <= 0 and 45 - anchor()[5] <= 85, "fits between the window and the screen edge")
+    equal(ns.BagBar.state, "docked on the bag window")
+    equal(#Mock.timers, 0, "and no timer for it")
+    check(ns.BagBar.hooks.UpdateContainerFrameAnchors and ns.BagBar.hooks.ContainerFrame_SetFullScreenFrame, "re-applied from Blizzard's own layout paths")
+
+    Mock.asBlizzard(function() -- Edit Mode re-applies its own anchor with a layout
+        BagsBar:ClearAllPoints()
+        BagsBar:SetPoint("BOTTOMLEFT", MicroMenuContainer, "BOTTOMRIGHT", 7, -4)
+    end)
+    Mock.fire("EDIT_MODE_LAYOUTS_UPDATED")
+    equal(anchor()[2], window, "docked again")
+
+    EditModeManagerFrame.editModeActive = true
+    Mock.asBlizzard(function() -- the player drags it in Edit Mode
+        BagsBar:ClearAllPoints()
+        BagsBar:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -30, 40)
+    end)
+    Mock.openAllBags(); Mock.closeAllBags()
+    equal(anchor()[2], UIParent, "hands off while Edit Mode is open")
+    EditModeManagerFrame.editModeActive = false
+    Mock.fire("EDIT_MODE_LAYOUTS_UPDATED")
+    equal(anchor()[2], window, "and docked again afterwards")
+
+    SlashCmdList.AKFOREVERBAGS("bagbar show")
+    equal(BagsBar:GetParent(), UIParent, "Blizzard's place ...")
+    equal(anchor()[2], UIParent); equal(anchor()[4], -30, "... which is where Edit Mode last had it, not where it was at login")
+    equal(anchor()[5], 40)
+    SlashCmdList.AKFOREVERBAGS("bagbar hide")
+    equal(BagsBar:GetParent(), AKForeverBagsHidden)
+    SlashCmdList.AKFOREVERBAGS("bagbar window")
+    equal(BagsBar:GetParent(), window)
+    SlashCmdList.AKFOREVERBAGS("bagbar sideways")
+    check(printed("usage: /fbags bagbar"))
+    -- (the harness fails a scenario if Edit Mode's SetPoint overrides ever ran from addon code)
+end)
+
+scenario("the docked bag bar folds away behind a little arrow on the bag window - and stays folded next session", function()
+    local ns = start()
+    local window, arrow = ContainerFrameCombinedBags, AKForeverBagsBagBarToggle
+    check(arrow, "the arrow exists while the bar is docked")
+    equal(arrow:GetParent(), window, "a child of the bag window: comes and goes with it")
+    equal(arrow:IsShown(), true)
+    local barX, arrowX = select(4, BagsBar:GetPoint(1)), select(4, arrow:GetPoint(1))
+    check(barX < arrowX, "the bar hangs to the LEFT of the arrow, not under it")
+
+    Mock.runScript(arrow, "OnClick")
+    equal(ns:GetOption("bagBarShown"), false)
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "folded away")
+    equal(arrow:IsShown(), true, "the arrow stays: that is how it comes back")
+    Mock.openAllBags(); Mock.closeAllBags()
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "a bag layout respects it")
+    Mock.runScript(arrow, "OnClick")
+    equal(BagsBar:GetParent(), window)
+
+    SlashCmdList.AKFOREVERBAGS("bagbar fold")
+    equal(BagsBar:GetParent(), AKForeverBagsHidden)
+    SlashCmdList.AKFOREVERBAGS("bagbar hide")
+    equal(arrow:IsShown(), false, "no arrow when the bag bar is switched off altogether")
+    SlashCmdList.AKFOREVERBAGS("bagbar window")
+    equal(arrow:IsShown(), true)
+
+    local db = { chars = { ["Purrdee - TestRealm"] = { options = { bagBarShown = false } } } }
+    start({ db = db, bridge = { table = db } })
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "remembered over a logout")
+    equal(AKForeverBagsBagBarToggle:IsShown(), true)
+end)
+
+scenario("a full-screen panel: Blizzard moves bag bar and bag window onto it - the bar is docked again at once, and 'show' leaves it there", function()
+    local ns = start()
+    local panel = CreateFrame("Frame", nil, UIParent)
+    Mock.asBlizzard(function() ContainerFrame_SetFullScreenFrame(panel) end) -- Blizzard opens a full-screen panel
+    equal(ContainerFrameCombinedBags:GetParent(), panel)
+    equal(BagsBar:GetParent(), ContainerFrameCombinedBags, "docked again at once: it would float over the panel otherwise")
+    Mock.asBlizzard(ContainerFrame_ClearFullScreenFrame)
+    equal(BagsBar:GetParent(), ContainerFrameCombinedBags)
+
+    SlashCmdList.AKFOREVERBAGS("bagbar show")
+    equal(BagsBar:GetParent(), UIParent)
+    Mock.asBlizzard(function() ContainerFrame_SetFullScreenFrame(panel) end) -- Blizzard opens a full-screen panel
+    equal(BagsBar:GetParent(), panel, "Blizzard's own move is not ours to undo")
+    Mock.asBlizzard(ContainerFrame_ClearFullScreenFrame)
+    equal(BagsBar:GetParent(), UIParent)
+    local _ = ns
+end)
+
+scenario("separate bag windows (no combined view): the bag bar shows in Blizzard's place while a bag is open - driven by the bag layouts, no poll", function()
+    local ns = start({ separateBags = true })
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "no bag open: out of the way")
+    equal(ns.BagBar.state, "hidden (no bag open)")
+    Mock.clickReagentBagButton() -- opens the reagent bag's window: Blizzard lays out
+    equal(BagsBar:GetParent(), UIParent, "a bag is open: there it is")
+    equal((select(2, BagsBar:GetPoint(1))), MicroMenuContainer, "where Blizzard had it")
+    Mock.clickReagentBagButton() -- closes it again
+    equal(BagsBar:GetParent(), AKForeverBagsHidden)
+    equal(#Mock.timers, 0, "no poll")
+
+    C_CVar.SetCVar("combinedBags", "1") -- the player switches to the combined view (the bag window's own menu)
+    equal(BagsBar:GetParent(), ContainerFrameCombinedBags)
+    C_CVar.SetCVar("combinedBags", "0")
+    Mock.clickReagentBagButton()
+    equal(BagsBar:GetParent(), UIParent, "and back")
+    equal((select(2, BagsBar:GetPoint(1))), MicroMenuContainer, "with Blizzard's anchor, not ours")
+end)
+
+scenario("never docked while Blizzard's own action bars are on the screen (the main bar's end cap hangs on it); a secret answer means hands off; combat", function()
+    local ns = start({ stockActionBars = true })
+    equal(BagsBar:GetParent(), UIParent, "Blizzard's bars are on the screen: the bar stays in Blizzard's place")
+    equal(ns.BagBar.state, "Blizzard's place (its action bars are on the screen)")
+    Mock.asBlizzard(function() MainActionBar:Hide() end) -- an action bar addon parks them
+    Mock.openAllBags(); Mock.closeAllBags()
+    equal(BagsBar:GetParent(), ContainerFrameCombinedBags, "parked: docked")
+
+    ns = start()
+    rawset(BagsBar, "GetPoint", function() return Mock.SECRET end)
+    SlashCmdList.AKFOREVERBAGS("bagbar hide")
+    equal(ns.BagBar.state, "unreadable - left alone")
+    equal(BagsBar:GetParent(), ContainerFrameCombinedBags, "nothing done")
+
+    ns = start()
+    Mock.setCombat(true)
+    SlashCmdList.AKFOREVERBAGS("bagbar hide")
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "not a protected frame: it may be moved in a fight")
+    BagsBar.__protected = true -- (if it ever is one)
+    SlashCmdList.AKFOREVERBAGS("bagbar show")
+    equal(BagsBar:GetParent(), AKForeverBagsHidden, "protected: wait for the end of the fight")
+    Mock.setCombat(false)
+    equal(BagsBar:GetParent(), UIParent)
+    SlashCmdList.AKFOREVERBAGS("bagbar")
+    check(printed("bag buttons: show"))
 end)
 
 scenario("diagnostics and logout run; the report is SavedVariables-safe and holds no frame", function()

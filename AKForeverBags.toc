@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Version: @project-version@
 ## Title: AKForeverBags
-## Notes: Puts the reagent bag's slots into the combined bag window's own grid, right after the normal slots, each with a slot background in another colour. The slots stay Blizzard's own: using, dragging, splitting, selling, searching and sorting work as ever.
+## Notes: Puts the reagent bag's slots into the combined bag window's own grid, right after the normal slots, each with a slot background in another colour. The slots stay Blizzard's own: using, dragging, splitting, selling, searching and sorting work as ever. The bag buttons (backpack, bag slots, key ring) dock under the bag window, with a fold arrow.
 ## Author: Purrdee
 ## X-License: MIT
 ## X-Curse-Project-ID: 1705679
@@ -12,4 +12,5 @@
 
 Core.lua
 Reagents.lua
+BagBar.lua
 Diagnostics.lua

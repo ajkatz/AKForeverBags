@@ -123,6 +123,7 @@ function Diagnostics:Collect()
         options = {
             merge = ns:GetOption("merge"), reagentsShown = ns:GetOption("reagentsShown"),
             backpackKeyOpensAll = ns:GetOption("backpackKeyOpensAll"),
+            bagBar = ns:GetOption("bagBar"), bagBarShown = ns:GetOption("bagBarShown"),
         },
         -- the performance promise, measured: our own gauge, the addon's memory, and the client's profiler
         work = ns.Reagents.work,
@@ -131,6 +132,7 @@ function Diagnostics:Collect()
             state = ns.Reagents.state, moved = ns.Reagents.moved, raises = ns.Reagents.raises, hooks = ns.Reagents.hooks,
             keys = ns.Reagents.keys, combinedSetting = ask((C_CVar and C_CVar.GetCVar) or GetCVar, "combinedBags"),
         },
+        bagBar = ns.BagBar and ns.BagBar:Describe() or "no module",
         bagSlots = {},
         windows = {},
         errors = {},

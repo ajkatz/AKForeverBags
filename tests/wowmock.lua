@@ -206,6 +206,25 @@ local function newBlizzardFrame(kind, name, parent)
     })
 end
 
+-- An Edit Mode SYSTEM frame (EditModeSystemMixin:OnSystemLoad): Blizzard swaps SetPoint / ClearAllPoints (and
+-- SetScale, SetShown, Hide) for Lua overrides that also do Edit Mode bookkeeping, and keeps the raw widget
+-- methods as SetPointBase / ClearAllPointsBase. Addon code that runs the overrides writes tainted values into
+-- Edit Mode - the raw ones are safe.
+local function makeEditModeSystem(frame, name)
+    local function override(method)
+        return function(self, ...)
+            if not Mock.blizzardCode then
+                violation("addon code ran Edit Mode's " .. method .. " override on " .. name .. " (taints Edit Mode; use " .. method .. "Base)")
+            end
+            return methods[method](self, ...)
+        end
+    end
+    for _, method in ipairs({ "SetPoint", "ClearAllPoints", "SetShown", "Hide", "SetScale" }) do
+        rawset(frame, method .. "Base", methods[method])
+        rawset(frame, method, override(method))
+    end
+end
+
 function Mock.runScript(widget, name, ...)
     local script = widget.__scripts[name]
     if script then
@@ -337,7 +356,13 @@ function Mock.install(options)
     global("GetRealmName", function() return "Test Realm" end)
     global("SlashCmdList", {})
     global("C_AddOns", { GetAddOnMetadata = function() return options.version or "0.1.0-test" end })
-    global("C_CVar", { GetCVar = function(name) return state.cvars[name] end })
+    global("C_CVar", {
+        GetCVar = function(name) return state.cvars[name] end,
+        SetCVar = function(name, value) -- the player flips a setting (the bag window's own menu, for instance)
+            state.cvars[name] = value
+            Mock.fire("CVAR_UPDATE", name, value)
+        end,
+    })
     global("C_Container", { GetContainerNumSlots = function(bag)
         if bag == 5 then
             return state.reagentSlots
@@ -583,12 +608,35 @@ function Mock.install(options)
             state.bagSlots = slots
             Mock.asBlizzard(function() generateViaBlizzard(combined, 0) end)
         end
-        -- The bag bar's reagent bag button: a click toggles that bag's window (ToggleBag(5)) - unless a frame
-        -- of the addon's lies over it and takes the click.
-        -- The bag bar. Stock: a thing of its own on UIParent. With AKForeverActionBars' docking (the default
-        -- here - it is how the author plays) it is a child of the combined bag window, and so part of ITS unit.
-        local bagsBar = newBlizzardFrame("Frame", "BagsBar", options.stockBagBar and G.UIParent or combined)
+        -- Blizzard's bottom fixtures the bag bar lives among: the micro menu container it is anchored to (Forever's
+        -- preset: BagsBar BOTTOMLEFT -> MicroMenuContainer BOTTOMRIGHT (7, -4)) and the main action bar, whose right
+        -- end cap hangs on the bag bar. An action bar addon parks the main bar on a hidden frame - the author's
+        -- setup, the default here (options.stockActionBars: Blizzard's bars on the screen).
+        local microMenu = newBlizzardFrame("Frame", "MicroMenuContainer", G.UIParent)
+        global("MicroMenuContainer", microMenu)
+        local mainBar = newBlizzardFrame("Frame", "MainActionBar", G.UIParent)
+        mainBar.__shown = options.stockActionBars and true or false
+        global("MainActionBar", mainBar)
+        -- The bag bar: a thing of its own on UIParent, an Edit Mode system. (The addon docks it onto the combined
+        -- bag window, which makes it part of THAT window's unit.) Its reagent bag button: a click toggles that
+        -- bag's window (ToggleBag(5)) - unless a frame of the addon's lies over it and takes the click.
+        local bagsBar = newBlizzardFrame("Frame", "BagsBar", G.UIParent)
         global("BagsBar", bagsBar)
+        bagsBar:SetSize(230, 45)
+        makeEditModeSystem(bagsBar, "BagsBar")
+        Mock.asBlizzard(function() bagsBar:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMRIGHT", 7, -4) end)
+        global("IsAnyBagOpen", function() return combined.__shown or reagent.__shown or false end)
+        global("EditModeManagerFrame", { IsEditModeActive = function(self) return self.editModeActive or false end })
+        -- Blizzard's ContainerFrame.lua moves the bag windows AND the bag bar onto a full-screen panel while one is
+        -- open, and back (ReparentContainerFrames).
+        local function reparentContainerFrames(target)
+            Mock.asBlizzard(function()
+                bagsBar:SetParent(target)
+                combined:SetParent(target)
+            end)
+        end
+        global("ContainerFrame_SetFullScreenFrame", blizzardFunction("ContainerFrame_SetFullScreenFrame", function(frame) reparentContainerFrames(frame) end))
+        global("ContainerFrame_ClearFullScreenFrame", blizzardFunction("ContainerFrame_ClearFullScreenFrame", function() reparentContainerFrames(G.UIParent) end))
         local slotButton = newBlizzardFrame("ItemButton", "CharacterReagentBag0Slot", bagsBar)
         global("CharacterReagentBag0Slot", slotButton)
         local keyRing = newBlizzardFrame("ItemButton", "KeyRingButton", bagsBar)
@@ -763,6 +811,11 @@ function Mock.install(options)
         end
     end)
 
+    -- Blizzard's bag bar left in its own place: the addon's '/fbags bagbar show', remembered from a session before
+    if options.stockBagBar and not options.db then
+        options.db = { chars = { [(options.playerName or "Purrdee") .. " - TestRealm"] = { options = { bagBar = "show" } } } }
+        options.bridge = { table = options.db }
+    end
     -- Saved variables, as the bridge addon leaves them
     G.AKForeverBagsDB, G.AKForeverBags_SavedStateBridge = options.db, options.bridge
     Mock.globalNames[#Mock.globalNames + 1] = "AKForeverBagsDB"

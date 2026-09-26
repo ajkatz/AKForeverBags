@@ -1,5 +1,17 @@
 # AKForeverBags
 
+## 0.3.0
+
+- **The bag buttons dock under the bag window.** A bag is swapped by dropping it on a bag slot button, and
+  those only live on Blizzard's bag bar - which floats on its own once an action bar addon has put
+  Blizzard's bottom fixtures away, and leaves no way to swap a bag once hidden. The bar is now a child of
+  the combined bag window, hanging under its right end, with a little arrow beside it that folds it away
+  and brings it back (`/fbags bagbar window|show|hide`, `fold|unfold`). Every button on it stays
+  Blizzard's own; only `SetParent` and the raw anchor methods are used, never while Edit Mode is open, and
+  no timer. With separate bag windows the bar shows in Blizzard's place while a bag is open, and while
+  Blizzard's own action bars are on the screen it is never docked (the main bar's end cap hangs on it).
+  Moved here from AKForeverActionBars, which leaves the bar alone while this addon runs.
+
 ## 0.2.2
 
 - Opening the bags no longer trips Blizzard's "attempt to call a nil value" error on build 70009 and

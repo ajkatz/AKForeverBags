@@ -183,6 +183,8 @@ local OPTION_DEFAULTS = {
     merge = true,               -- the reagent bag's slots go into the combined bag window
     reagentsShown = true,       -- ... and shown there (false: put away - the bag window looks stock)
     backpackKeyOpensAll = true, -- the backpack key opens the reagent bag as well (the merge needs it open)
+    bagBar = "window",          -- the bag buttons: "window" = docked under the bag window | "show" | "hide" (BagBar.lua)
+    bagBarShown = true,         -- ... and while docked: shown, or folded away behind the little arrow
 }
 
 -- The realm is squeezed ("Classic Beta PvE" -> "ClassicBetaPvE"): on a fresh login UnitFullName has no
