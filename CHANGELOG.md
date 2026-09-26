@@ -1,5 +1,11 @@
 # AKForeverBags
 
+## 0.2.2
+
+- Opening the bags no longer trips Blizzard's "attempt to call a nil value" error on build 70009 and
+  later: the reagent slots take the window's height from the window itself instead of hooking
+  Blizzard's resize method. Nothing of Blizzard's is hooked or run for it.
+
 ## 0.2.1
 
 - Now on Wago Addons too. The addon itself is unchanged.

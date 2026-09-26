@@ -70,7 +70,8 @@ nothing can be "secret" to us in a fight). The addon only says where things stan
   Blizzard's order (highest slot first, so slot 1 ends up top left);
 * the reagent window is kept **in front of the bag window** (next section);
 * the combined window is made taller by the extra rows (`SetHeight` on top of the height Blizzard gave it,
-  remembered by a post-hook on its `UpdateFrameSize`);
+  read off the window itself in the anchors pass - a post-hook on its `UpdateFrameSize` method broke every
+  bag opening on build 70009, so nothing of Blizzard's is hooked for the height any more);
 * the coloured slot backgrounds are OUR textures on OUR frame (a child of the bag window) - item buttons
   have no background of their own (in the combined window Blizzard gives each of its buttons one,
   `ItemSlotBackgroundCombinedBagsTemplate`; ours is that art, tinted). Nothing is created on Blizzard's buttons.
