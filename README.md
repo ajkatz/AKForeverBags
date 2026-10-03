@@ -32,9 +32,12 @@ From [CurseForge](https://www.curseforge.com/wow/addons/akforeverbags) or
 unpack a [release zip](https://github.com/ajkatz/AKForeverBags/releases) into
 `_classic_beta_\Interface\AddOns\`. It works out of the box; `/fbags` lists the commands.
 
-The 1.60.1 beta client writes addon settings on logout but never reads them back: changed settings last
-until you log out (the defaults need none). `tools/Install-SavedStateBridge.ps1` is the workaround used
-during development.
+Settings are saved per character, under the character's full name and realm, and come back on your next
+login. Client build 1.60.1.70170 (Oct 1 2026) reads addon settings back again; it also moved a character's
+surname into the realm slot of `UnitName`, which split profiles for a day. Profiles saved under either
+spelling, and those of a cold login, are folded into one the first time each character logs in. The
+saved-settings bridge of the earlier beta builds (`tools/Install-SavedStateBridge.ps1`) is no longer needed:
+run it with `-Remove`.
 
 ## The reagent bag's slots, in the bag window's own grid
 
@@ -181,5 +184,5 @@ Releases: a pushed tag (`v0.2.0`) runs the tests and the [BigWigs packager](http
 (`.github/workflows/release.yml`, `.pkgmeta`), which uploads to CurseForge, Wago and GitHub Releases.
 `docs/LISTING.md` holds the marketplace text.
 
-`tools/Install-SavedStateBridge.ps1` installs the saved-settings bridge (the 1.60.1 beta client writes
-SavedVariables but never reads them back).
+`tools/Install-SavedStateBridge.ps1` installed the saved-settings bridge the beta builds before 1.60.1.70170
+needed (they wrote SavedVariables but never read them back); since that build it is only kept for `-Remove`.

@@ -331,6 +331,11 @@ function Mock.install(options)
         reagentSlots = options.reagentSlots == nil and 12 or options.reagentSlots,
         bagSlots = options.bagSlots or 56,
         playerName = options.playerName or "Purrdee",
+        surname = options.surname,                 -- a WoW: Forever surname: "Purrdee Bubson"
+        build70170 = options.build70170,           -- the surname in the realm slot, as the client does since Oct 1 2026
+        freshLogin = options.freshLogin,           -- no realm slot yet (older clients, on a fresh login)
+        coldLogin = options.coldLogin,             -- no name at all until PLAYER_LOGIN
+        normalizedRealm = options.normalizedRealm, -- false: no GetNormalizedRealmName(), only the spaced GetRealmName()
     }
     Mock.state = state
 
@@ -351,9 +356,42 @@ function Mock.install(options)
     global("date", function() return "2026-09-20 12:00:00" end)
     global("InCombatLockdown", function() return state.inCombat end)
     global("GetBuildInfo", function() return "1.60.1", "69913", "Sep 17 2026", 16001 end)
-    global("UnitName", function() return state.playerName end)
-    global("UnitFullName", function() return state.playerName, "TestRealm" end)
+    -- The player's name as the client gives it: state.surname adds a WoW: Forever surname; state.build70170
+    -- puts it in the realm slot, as the client does since Oct 1 2026 (UnitFullName("player") -> "Purrdee",
+    -- "Bubson"; before: "Purrdee Bubson", "TestRealm"); state.freshLogin: no realm slot yet; state.coldLogin:
+    -- no name at all until PLAYER_LOGIN.
+    local function playerName()
+        if state.coldLogin then
+            return nil, nil
+        end
+        local name, slot = state.playerName, nil
+        if state.surname and state.build70170 then
+            slot = state.surname
+        else
+            if state.surname then
+                name = name .. " " .. state.surname
+            end
+            if not state.freshLogin then
+                slot = "TestRealm"
+            end
+        end
+        return name, slot
+    end
+    global("UnitName", function()
+        local name, slot = playerName()
+        if state.build70170 then
+            return name, slot
+        end
+        return name
+    end)
+    global("UnitFullName", playerName)
     global("GetRealmName", function() return "Test Realm" end)
+    global("GetNormalizedRealmName", function()
+        if state.normalizedRealm == false then
+            return nil -- a client without it: the spaced GetRealmName(), squeezed, must do
+        end
+        return "TestRealm"
+    end)
     global("SlashCmdList", {})
     global("C_AddOns", { GetAddOnMetadata = function() return options.version or "0.1.0-test" end })
     global("C_CVar", {
@@ -839,6 +877,7 @@ end
 
 function Mock.login()
     Mock.fire("ADDON_LOADED", ADDON)
+    Mock.state.coldLogin = false -- by PLAYER_LOGIN the client knows who you are
     Mock.fire("PLAYER_LOGIN")
     Mock.fire("PLAYER_ENTERING_WORLD", true, false)
 end

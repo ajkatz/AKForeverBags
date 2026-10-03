@@ -34,10 +34,10 @@ normal slots, each with a green slot background so you can tell them apart.
 
 Needs the **combined bag** setting (the default). Works with or without other UI addons.
 
-### Known limitation of the 1.60.1 beta client
+### Saved settings
 
-The beta client writes addon settings on logout but never reads them back, so changed settings last
-until you log out. The defaults (everything on) need no settings.
+Settings are saved per character and survive logging out (client build 1.60.1.70170 of Oct 1 2026 and
+later). The defaults (everything on) need no settings.
 
 ## Logo and screenshots
 
