@@ -20,6 +20,10 @@ normal slots, each with a green slot background so you can tell them apart.
 - **One key for everything:** your backpack key opens the reagent bag too (it runs Blizzard's own
   *Open All Bags*).
 - **Featherweight:** no timers, no polling - it only runs when your bags are laid out or clicked.
+- **The bag buttons, docked under the bag window.** On Forever a bag is swapped by dropping it on a bag slot
+  button, and those only live on Blizzard's bag bar at the bottom right - which the combined bag window has
+  none of. The bar is docked under the bag window's right end instead, with a small arrow that folds it away
+  and brings it back; it shows, hides and scales with your bags, and every button on it is still Blizzard's own.
 - **Built not to break things:** the addon never calls Blizzard's bag functions and never touches a
   protected frame in combat - no "action blocked" popups.
 
@@ -30,6 +34,8 @@ normal slots, each with a green slot background so you can tell them apart.
 | `/fbags hide` / `show` | put the reagent slots away / bring them back |
 | `/fbags off` / `on` | Blizzard's separate reagent window / the merged view (default) |
 | `/fbags key off` / `on` | leave the backpack key alone / it opens all bags (default) |
+| `/fbags bagbar window` / `show` / `hide` | the bag buttons docked under the bag window (default) / in Blizzard's place, always / away |
+| `/fbags bagbar fold` / `unfold` | what the arrow under the bag window's corner does; remembered over a logout |
 | `/fbags status`, `/fbags diag` | what it is doing; a report for bug reports |
 
 Needs the **combined bag** setting (the default). Works with or without other UI addons.
