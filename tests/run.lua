@@ -121,6 +121,38 @@ scenario("Open All Bags: the reagent slots continue the bag window's own grid - 
     equal(combined:GetHeight(), Mock.combinedHeight() + 42)
 end)
 
+scenario("/fbags order top mirrors the grid - the backpack top left as before build 70291 - after every layout of Blizzard's; bottom is Blizzard's own; the reagent slots follow either way", function()
+    local ns = start()
+    Mock.openAllBags()
+    local combined = ContainerFrameCombinedBags
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "by default every normal slot stands where Blizzard put it")
+    end
+    equal(ns.Reagents.order, "bottom")
+    SlashCmdList.AKFOREVERBAGS("order top")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), 56 + 1 - index, "mirrored: normal slot " .. index)
+    end
+    equal(ns.Reagents.order, "top")
+    local buttons = reagentButtons()
+    equal(cellOf(buttons[12]), 57, "the reagent slots still continue after the last of Blizzard's cells")
+    equal(cellOf(buttons[1]), 68)
+    -- Blizzard lays the window out again (a bag swap, a reopening): mirrored again at once
+    Mock.openAllBags()
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), 56 + 1 - index, "mirrored again after Blizzard's layout: slot " .. index)
+    end
+    -- and back
+    SlashCmdList.AKFOREVERBAGS("order bottom")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "Blizzard's order again: slot " .. index)
+    end
+    equal(ns:GetOption("order"), "bottom")
+    SlashCmdList.AKFOREVERBAGS("order sideways")
+    equal(ns:GetOption("order"), "bottom", "a word that is neither changes nothing")
+    equal(#Mock.errors, 0)
+end)
+
 scenario("the colour is on the SLOTS: one tinted slot background behind every reagent slot, ours, none on Blizzard's buttons", function()
     start()
     Mock.openAllBags()

@@ -1,5 +1,13 @@
 # AKForeverBags
 
+## 0.3.2
+
+- **`/fbags order top`: the backpack top left again.** Client build 70291 (Oct 8 2026) turned the combined
+  bag window the other way round: the backpack now sorts first and stands at the bottom right, as in
+  retail. `order top` mirrors the grid after every layout of Blizzard's - the buttons stay Blizzard's, only
+  re-anchored - so the backpack's first slot is top left as before; `order bottom` (the default) leaves the
+  client's new picture. The reagent slots follow either way.
+
 ## 0.3.1
 
 - **Settings follow the character again.** Client build 1.60.1.70170 (Oct 1 2026) moved a character's

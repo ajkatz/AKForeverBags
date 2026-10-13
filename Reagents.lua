@@ -210,6 +210,7 @@ local function readGrid(combined)
                 or type(at[4]) ~= "number" or type(at[5]) ~= "number" then
                 return nil
             end
+            at.button = button
             anchors[#anchors + 1] = at
         end
     end
@@ -223,21 +224,64 @@ local function readGrid(combined)
         end
         x0, y0 = math.max(x0, at[4]), math.min(y0, at[5])
     end
-    local last = 0 -- the highest cell number Blizzard uses; cells count from 1 at the bottom right, leftwards, then up
+    local last, cells = 0, {} -- the highest cell number Blizzard uses; cells count from 1 at the bottom right, leftwards, then up
     for _, at in ipairs(anchors) do
         local column, row = (x0 - at[4]) / PITCH, (at[5] - y0) / PITCH
         local wholeColumn, wholeRow = math.floor(column + 0.5), math.floor(row + 0.5)
         if math.abs(column - wholeColumn) > 0.02 or math.abs(row - wholeRow) > 0.02 or wholeColumn >= COLUMNS then
             return nil
         end
-        last = math.max(last, wholeRow * COLUMNS + wholeColumn + 1)
+        local cell = wholeRow * COLUMNS + wholeColumn + 1
+        last = math.max(last, cell)
+        cells[#cells + 1] = { button = at.button, cell = cell }
     end
-    return { origin = origin, x0 = x0, y0 = y0, last = last, rows = math.floor((last - 1) / COLUMNS) + 1 }
+    return { origin = origin, x0 = x0, y0 = y0, last = last, rows = math.floor((last - 1) / COLUMNS) + 1, cells = cells }
 end
 
 local function cellOffset(grid, cell)
     local column, row = (cell - 1) % COLUMNS, math.floor((cell - 1) / COLUMNS)
     return grid.x0 - column * PITCH, grid.y0 + row * PITCH
+end
+
+------------------------------------------------------------------------
+-- The order of the grid. Client build 70291 (Oct 8 2026) turned Blizzard's combined window the other way
+-- round: it used to sort the last bag first and the backpack last, so with the grid filling from the
+-- bottom right the backpack's first slot stood top left; now the backpack sorts first and stands at the
+-- bottom right, as in retail. '/fbags order top' gives the old picture back by mirroring the cells -
+-- Blizzard's buttons, only re-anchored, after every layout of Blizzard's. Which way the grid is in right
+-- now is read from the grid itself: the first slot of the first bag stands in cell 1 (Blizzard's order) or
+-- in the last cell (mirrored). A button whose bag or slot cannot be read means hands off.
+------------------------------------------------------------------------
+-- Nothing of Blizzard's is read for this beyond the grid itself: when WE mirror, one button and the cell we
+-- put it in are remembered; as long as it stands there the grid is still ours, and the moment Blizzard has
+-- laid out again (the button is back where Blizzard puts it) it is Blizzard's. The default costs no read.
+local mirrorMark -- { button, cell } of our last mirroring; nil = the grid is Blizzard's as far as we know
+
+local function applyOrder(grid)
+    local wantTop = ns:GetOption("order") == "top"
+    local mirrored = false
+    if mirrorMark then
+        for _, entry in ipairs(grid.cells) do
+            if entry.button == mirrorMark.button then
+                mirrored = entry.cell == mirrorMark.cell
+                break
+            end
+        end
+    end
+    if mirrored ~= wantTop then
+        -- the mirror is its own inverse: cell -> last + 1 - cell, so the same pass puts Blizzard's order back
+        local mark
+        for _, entry in ipairs(grid.cells) do
+            local target = grid.last + 1 - entry.cell
+            local x, y = cellOffset(grid, target)
+            anchor(entry.button, "BOTTOMRIGHT", grid.origin, "TOPRIGHT", x, y)
+            if not mark and target ~= entry.cell then
+                mark = { button = entry.button, cell = target }
+            end
+        end
+        mirrorMark = wantTop and mark or nil
+    end
+    Reagents.order = wantTop and "top" or "bottom"
 end
 
 ------------------------------------------------------------------------
@@ -412,6 +456,7 @@ function Reagents:Apply()
     if not grid then
         return unmerge(combined, reagent, "the bag window's grid is not one we know - left alone")
     end
+    applyOrder(grid)
 
     -- Blizzard's reagent window: off the screen, still open (its buttons only exist while it is)
     anchor(reagent, "BOTTOMRIGHT", UIParent, "BOTTOMLEFT", -300, 0)
@@ -606,6 +651,15 @@ ns:RegisterCommand("key", "'on' (default): the backpack key opens the reagent ba
         end
     end
     ns:Print("backpack key:", Reagents.keys ~= "" and (Reagents.keys .. " opens all bags.") or "left alone.")
+end)
+
+ns:RegisterCommand("order", "'bottom' (default): the backpack at the bottom of the combined bag window, as the client lays it out since Oct 8 2026; 'top': the backpack top left, as before", function(rest)
+    local mode = string.lower(rest or "")
+    if mode == "top" or mode == "bottom" then
+        ns:SetOption("order", mode)
+    end
+    ns:Print("order:", ns:GetOption("order") == "top" and "the backpack top left, as before build 70291." or "the backpack at the bottom, as the client lays it out.",
+        Reagents.order and ("Now: " .. Reagents.order .. ".") or "")
 end)
 
 ns:RegisterCommand("status", "what is being done with the reagent slots right now", report)

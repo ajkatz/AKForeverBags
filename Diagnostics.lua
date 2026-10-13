@@ -130,6 +130,7 @@ function Diagnostics:Collect()
         performance = Diagnostics:Performance(),
         reagents = {
             state = ns.Reagents.state, moved = ns.Reagents.moved, raises = ns.Reagents.raises, hooks = ns.Reagents.hooks,
+            order = ns.Reagents.order, orderWanted = ns:GetOption("order"),
             keys = ns.Reagents.keys, combinedSetting = ask((C_CVar and C_CVar.GetCVar) or GetCVar, "combinedBags"),
         },
         bagBar = ns.BagBar and ns.BagBar:Describe() or "no module",

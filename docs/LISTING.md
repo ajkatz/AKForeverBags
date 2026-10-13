@@ -34,6 +34,7 @@ normal slots, each with a green slot background so you can tell them apart.
 | `/fbags hide` / `show` | put the reagent slots away / bring them back |
 | `/fbags off` / `on` | Blizzard's separate reagent window / the merged view (default) |
 | `/fbags key off` / `on` | leave the backpack key alone / it opens all bags (default) |
+| `/fbags order top` / `bottom` | the backpack top left in the combined window, as before October 8 / at the bottom, as the client lays it out now (default) |
 | `/fbags bagbar window` / `show` / `hide` | the bag buttons docked under the bag window (default) / in Blizzard's place, always / away |
 | `/fbags bagbar fold` / `unfold` | what the arrow under the bag window's corner does; remembered over a logout |
 | `/fbags status`, `/fbags diag` | what it is doing; a report for bug reports |
