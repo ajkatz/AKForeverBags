@@ -46,6 +46,10 @@ Needs the **combined bag** setting (the default). Works with or without other UI
 Settings are saved per character and survive logging out (client build 1.60.1.70170 of Oct 1 2026 and
 later). The defaults (everything on) need no settings.
 
+### Community
+
+Questions, bug reports and ideas for the AKForever addons: join the Discord - https://discord.gg/cFvvvHVm4J
+
 ## Logo and screenshots
 
 Logo (400 x 400): `..\ForeverBranding\out\AKForeverBags\logo-400.png` (master: `logo-1024.png`).
