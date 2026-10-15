@@ -1,5 +1,17 @@
 # AKForeverBags
 
+## 0.4.0
+
+- **A sort button, the reagent pouch first, and pins.** Blizzard's sort button draws nothing on this client
+  (its artwork is missing), so a classic panel button of ours sits in the window's title bar. It fills the
+  reagent pouch with everything that belongs there, runs the client's sort, then swaps the pinned items
+  into the bottom-right cells of the window - one landed move at a time. `/fbags sort`, `/fbags pin <item>`,
+  `/fbags unpin`, `/fbags pins`; a shaman's four totems are pinned out of the box.
+- **`/fbags reagents bottom`: the reagent rows at the bottom of the window** (asked for on CurseForge). The
+  reagent slots take the bottom cells and Blizzard's buttons move up by that many - the same re-anchoring
+  `order top` does for the mirror, and the two compose. `reagents top` (the default) is the picture as
+  before. Pinned items still go to the bottom of the ordinary bags, right above the reagent rows.
+
 ## 0.3.2
 
 - **`/fbags order top`: the backpack top left again.** Client build 70291 (Oct 8 2026) turned the combined

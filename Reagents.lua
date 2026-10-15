@@ -5,7 +5,8 @@
 -- Bags". Here that window is pushed off the screen and its ITEM BUTTONS are re-anchored so that they
 -- continue the combined window's grid: Blizzard fills it from the bottom right (AnchorUtil.GridLayout,
 -- 10 wide, every button anchored to the money row), which leaves the top row's left end empty - the
--- reagent slots take those cells, then rows of their own on top, and the window grows by those rows.
+-- reagent slots take those cells, then rows of their own on top, and the window grows by those rows. (Or,
+-- on request, they take the bottom rows and Blizzard's buttons move up by that many: '/fbags reagents'.)
 -- Behind every reagent slot sits a slot background of OURS in another colour.
 --
 -- The buttons stay Blizzard's: children of its reagent window, filled, updated, searched, sorted and
@@ -244,44 +245,110 @@ local function cellOffset(grid, cell)
 end
 
 ------------------------------------------------------------------------
--- The order of the grid. Client build 70291 (Oct 8 2026) turned Blizzard's combined window the other way
--- round: it used to sort the last bag first and the backpack last, so with the grid filling from the
--- bottom right the backpack's first slot stood top left; now the backpack sorts first and stands at the
--- bottom right, as in retail. '/fbags order top' gives the old picture back by mirroring the cells -
--- Blizzard's buttons, only re-anchored, after every layout of Blizzard's. Which way the grid is in right
--- now is read from the grid itself: the first slot of the first bag stands in cell 1 (Blizzard's order) or
--- in the last cell (mirrored). A button whose bag or slot cannot be read means hands off.
+-- The layout of the grid: Blizzard's buttons, only re-anchored, after every layout of Blizzard's.
+--
+-- The order. Client build 70291 (Oct 8 2026) turned Blizzard's combined window the other way round: it used
+-- to sort the last bag first and the backpack last, so with the grid filling from the bottom right the
+-- backpack's first slot stood top left; now the backpack sorts first and stands at the bottom right, as in
+-- retail. '/fbags order top' gives the old picture back by mirroring the cells.
+--
+-- The reagent rows. '/fbags reagents bottom' (asked for on CurseForge) puts the reagent slots into the
+-- bottom cells, 1..N, and Blizzard's buttons N cells further up.
+--
+-- Both are one permutation of Blizzard's NATURAL cells: natural cell c goes to
+--     offset + c                  order bottom (Blizzard's own)
+--     offset + (last + 1 - c)     order top (the mirror)
+-- with offset = N while the reagent rows sit at the bottom, else 0.
+--
+-- Nothing of Blizzard's is read for this beyond the grid itself. Once the grid is ours, though, reading it
+-- gives OUR cells, not Blizzard's - an offset would compound on every pass, and with ten or more reagent
+-- slots the bottom row holds none of Blizzard's buttons, so the origin readGrid infers is a row too high.
+-- So the natural picture is remembered behind a mark: one button and the anchor we gave it. As long as it
+-- stands there (and the buttons are the same set) the grid is ours and the remembered picture holds; the
+-- moment Blizzard has laid out again (the button is back where Blizzard puts it) the grid is natural. The
+-- default costs no read and remembers nothing.
 ------------------------------------------------------------------------
--- Nothing of Blizzard's is read for this beyond the grid itself: when WE mirror, one button and the cell we
--- put it in are remembered; as long as it stands there the grid is still ours, and the moment Blizzard has
--- laid out again (the button is back where Blizzard puts it) it is Blizzard's. The default costs no read.
-local mirrorMark -- { button, cell } of our last mirroring; nil = the grid is Blizzard's as far as we know
+local ourLayout -- { byButton = natural cell of every button, last, x0, y0, count, mark = { button, x, y } }; nil = natural
 
-local function applyOrder(grid)
-    local wantTop = ns:GetOption("order") == "top"
-    local mirrored = false
-    if mirrorMark then
+-- Where reagent slot `index` of the list (highest slot first) stands: after Blizzard's last cell, or - with
+-- the rows at the bottom - in cells 1..count, in the direction of the grid: slot 1 at the bottom right in
+-- Blizzard's order (as the backpack's own slot 1), the highest slot there in the mirrored one (the sequence
+-- from the top left ends with it).
+local function reagentCell(grid, index, count)
+    if ns:GetOption("reagentsAt") ~= "bottom" then
+        return grid.last + index
+    end
+    if ns:GetOption("order") == "top" then
+        return index
+    end
+    return count + 1 - index
+end
+
+-- `undo`: Blizzard's own picture, whatever the options say (from unmerge). On return grid.last and grid.rows
+-- are NATURAL (Blizzard's count), which the growth and the reagent placement are figured from, and every
+-- entry's cell is where its button actually stands.
+local function applyLayout(grid, reagentCount, undo)
+    local wantTop = not undo and ns:GetOption("order") == "top"
+    local offset = (not undo and ns:GetOption("reagentsAt") == "bottom") and reagentCount or 0
+
+    -- where every button stands, as offsets from the origin: arithmetic on what readGrid read, no read
+    for _, entry in ipairs(grid.cells) do
+        entry.x, entry.y = cellOffset(grid, entry.cell)
+    end
+    -- the grid as we left it? the same buttons, and the marked one still anchored where we put it
+    local ours = ourLayout ~= nil and ourLayout.count == #grid.cells
+    if ours then
+        ours = false
         for _, entry in ipairs(grid.cells) do
-            if entry.button == mirrorMark.button then
-                mirrored = entry.cell == mirrorMark.cell
+            if entry.button == ourLayout.mark.button then
+                ours = math.abs(entry.x - ourLayout.mark.x) < 0.01 and math.abs(entry.y - ourLayout.mark.y) < 0.01
                 break
             end
         end
     end
-    if mirrored ~= wantTop then
-        -- the mirror is its own inverse: cell -> last + 1 - cell, so the same pass puts Blizzard's order back
-        local mark
+    if ours then
         for _, entry in ipairs(grid.cells) do
-            local target = grid.last + 1 - entry.cell
-            local x, y = cellOffset(grid, target)
-            anchor(entry.button, "BOTTOMRIGHT", grid.origin, "TOPRIGHT", x, y)
-            if not mark and target ~= entry.cell then
-                mark = { button = entry.button, cell = target }
+            if not ourLayout.byButton[entry.button] then
+                ours = false -- a button we never saw: Blizzard rebuilt the grid
+                break
             end
         end
-        mirrorMark = wantTop and mark or nil
+    end
+    local natural
+    if ours then
+        natural = ourLayout.byButton
+        grid.x0, grid.y0, grid.last = ourLayout.x0, ourLayout.y0, ourLayout.last
+    else
+        natural = {}
+        for _, entry in ipairs(grid.cells) do
+            natural[entry.button] = entry.cell
+        end
+    end
+    grid.rows = math.floor((grid.last - 1) / COLUMNS) + 1
+
+    -- Only a button that is not where it should be is touched - and what readGrid just read says where it
+    -- is, so that costs no read either: the default (nothing to do) costs nothing at all.
+    local mark
+    for _, entry in ipairs(grid.cells) do
+        local c = natural[entry.button]
+        local target = offset + (wantTop and (grid.last + 1 - c) or c)
+        local x, y = cellOffset(grid, target)
+        if math.abs(x - entry.x) > 0.01 or math.abs(y - entry.y) > 0.01 then
+            entry.button:ClearAllPoints()
+            entry.button:SetPoint("BOTTOMRIGHT", grid.origin, "TOPRIGHT", x, y)
+        end
+        entry.cell, entry.x, entry.y = target, x, y
+        if not mark and target ~= c then
+            mark = { button = entry.button, x = x, y = y }
+        end
+    end
+    if mark then
+        ourLayout = { byButton = natural, last = grid.last, x0 = grid.x0, y0 = grid.y0, count = #grid.cells, mark = mark }
+    else
+        ourLayout = nil -- Blizzard's own picture: nothing to remember
     end
     Reagents.order = wantTop and "top" or "bottom"
+    Reagents.reagentsAt = offset > 0 and "bottom" or "top"
 end
 
 ------------------------------------------------------------------------
@@ -325,7 +392,7 @@ local function showBackgrounds(combined, grid, count)
     for index = 1, math.max(count, #frame.slots) do
         local slot = index <= count and slotBackground(frame, index) or frame.slots[index]
         if index <= count then
-            local x, y = cellOffset(grid, grid.last + index)
+            local x, y = cellOffset(grid, reagentCell(grid, index, count))
             for _, texture in pairs(slot) do
                 texture:ClearAllPoints()
                 texture:Show()
@@ -401,6 +468,12 @@ local function unmerge(combined, reagent, why)
     if combined and appliedHeight and shown(combined) == true then
         setGrowth(combined, 0) -- (a closed window is sized by Blizzard when it opens)
     end
+    if combined and ourLayout and shown(combined) == true then
+        local grid = readGrid(combined) -- (a closed window is laid out by Blizzard when it opens)
+        if grid then
+            applyLayout(grid, 0, true)
+        end
+    end
     Reagents.moved = 0
     setState(why)
 end
@@ -453,10 +526,14 @@ function Reagents:Apply()
         return
     end
     local grid = readGrid(combined)
+    Reagents.lastGrid = grid -- (Sort.lua asks which bag slot each bottom cell is)
+    if ns.Sort then
+        ns.Sort:EnsureButton() -- the first call makes it; every other returns it
+    end
     if not grid then
         return unmerge(combined, reagent, "the bag window's grid is not one we know - left alone")
     end
-    applyOrder(grid)
+    applyLayout(grid, ns:GetOption("reagentsShown") and #buttons or 0)
 
     -- Blizzard's reagent window: off the screen, still open (its buttons only exist while it is)
     anchor(reagent, "BOTTOMRIGHT", UIParent, "BOTTOMLEFT", -300, 0)
@@ -478,7 +555,7 @@ function Reagents:Apply()
         return unmerge(combined, reagent, "unreadable - left alone")
     end
     for index, entry in ipairs(buttons) do
-        local x, y = cellOffset(grid, grid.last + index)
+        local x, y = cellOffset(grid, reagentCell(grid, index, #buttons))
         anchor(entry.button, "BOTTOMRIGHT", grid.origin, "TOPRIGHT", x, y)
     end
     showBackgrounds(combined, grid, #buttons)
@@ -486,7 +563,7 @@ function Reagents:Apply()
     -- the bag window, the merge was just switched on - may have left that window in front.
     bringForward(reagent)
     Reagents.moved = #buttons
-    setState("merged: " .. #buttons .. " reagent slots after Blizzard's " .. grid.last
+    setState("merged: " .. #buttons .. (Reagents.reagentsAt == "bottom" and " reagent slots under Blizzard's " or " reagent slots after Blizzard's ") .. grid.last
         .. (rows > grid.rows and (", " .. (rows - grid.rows) .. " more row" .. (rows - grid.rows > 1 and "s" or "")) or ", no extra row"))
 end
 
@@ -662,4 +739,45 @@ ns:RegisterCommand("order", "'bottom' (default): the backpack at the bottom of t
         Reagents.order and ("Now: " .. Reagents.order .. ".") or "")
 end)
 
+ns:RegisterCommand("reagents", "'top' (default): the reagent slots after the last of Blizzard's, at the top of the window; 'bottom': in the bottom rows, Blizzard's slots moved up above them", function(rest)
+    local mode = string.lower(rest or "")
+    if mode == "top" or mode == "bottom" then
+        ns:SetOption("reagentsAt", mode)
+    end
+    ns:Print("reagent slots:", ns:GetOption("reagentsAt") == "bottom" and "in the bottom rows, Blizzard's slots above them." or "at the top, after the last of Blizzard's.",
+        Reagents.reagentsAt and ("Now: " .. Reagents.reagentsAt .. ".") or "")
+end)
+
 ns:RegisterCommand("status", "what is being done with the reagent slots right now", report)
+
+------------------------------------------------------------------------
+-- For Sort.lua: the lowest cells of the ORDINARY bags in the combined view, as bag slots - the bottom
+-- right whatever /fbags order says (the cells come from the buttons' anchors, and the layout keeps them
+-- true), and right above the reagent rows when those sit at the bottom: a pinned item cannot go into the
+-- reagent pouch.
+------------------------------------------------------------------------
+function Reagents:BottomCells(count)
+    local grid = self.lastGrid
+    if not grid or type(grid.cells) ~= "table" then
+        return nil, "the bag window's grid is not known - open your bags"
+    end
+    local entries = {}
+    for _, entry in ipairs(grid.cells) do
+        entries[#entries + 1] = entry
+    end
+    table.sort(entries, function(a, b) return a.cell < b.cell end)
+    if #entries < count then
+        return nil, "the window's grid has fewer cells than that"
+    end
+    local out = {}
+    for index = 1, count do
+        local button = entries[index].button
+        local bag = ns.Readable(button.GetBagID, button)
+        local slot = ns.Readable(button.GetID, button)
+        if not bag or not slot or type(bag[1]) ~= "number" or type(slot[1]) ~= "number" then
+            return nil, "a bottom cell's bag slot is unreadable"
+        end
+        out[index] = { bag = bag[1], slot = slot[1] }
+    end
+    return out
+end

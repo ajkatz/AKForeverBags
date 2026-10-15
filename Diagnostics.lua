@@ -91,6 +91,65 @@ local function describeWindow(window)
 end
 
 -- What the CLIENT says this addon costs. Only asked when a report is made.
+-- The header of the combined bag window: Blizzard's sort button and search box, which the addon never
+-- touches but which a user reported missing (2026-10-14). Rects in screen coordinates, so "is the item
+-- row up in the header band" and "does the search box reach the button" can be read straight off.
+local function rectOf(frame)
+    if type(frame) ~= "table" then
+        return "absent"
+    end
+    -- ask() sanitises anything that is not a plain value, so the parent FRAME is fetched directly and
+    -- only its name goes through ask
+    local parent
+    if type(frame.GetParent) == "function" then
+        local ok, value = pcall(frame.GetParent, frame)
+        parent = ok and value or nil
+    end
+    return {
+        shown = ask(frame.IsShown, frame), visible = ask(frame.IsVisible, frame),
+        parent = type(parent) == "table" and (ask(parent.GetName, parent) or "(unnamed)") or tostring(parent),
+        left = ask(frame.GetLeft, frame), right = ask(frame.GetRight, frame),
+        top = ask(frame.GetTop, frame), bottom = ask(frame.GetBottom, frame),
+        width = ask(frame.GetWidth, frame), strata = ask(frame.GetFrameStrata, frame), level = ask(frame.GetFrameLevel, frame),
+        anchor = anchorOf(frame),
+    }
+end
+
+local function describeHeader()
+    local combined = _G.ContainerFrameCombinedBags
+    local header = {
+        sortButton = rectOf(_G.BagItemAutoSortButton),
+        searchBox = rectOf(_G.BagItemSearchBox),
+        backdrop = rectOf(_G.AKForeverBagsReagentSlots),
+        ourSortButton = rectOf(_G.AKForeverBagsSortButton),
+        titleBar = rectOf(type(_G.ContainerFrameCombinedBags) == "table" and _G.ContainerFrameCombinedBags.TitleContainer),
+        portrait = rectOf(type(_G.ContainerFrameCombinedBags) == "table" and _G.ContainerFrameCombinedBags.PortraitContainer),
+    }
+    if type(combined) == "table" then
+        header.windowTop = ask(combined.GetTop, combined)
+        header.windowRight = ask(combined.GetRight, combined)
+        local width = ask(combined.GetWidth, combined)
+        if type(width) == "number" then
+            -- the columns the width implies, against the ten this addon assumes
+            header.columnsImplied = math.floor((width - 10) / 42 + 0.5)
+        end
+        local items = combined.Items -- (read only)
+        if type(items) == "table" then
+            local highest, which
+            for index, button in ipairs(items) do
+                if type(button) == "table" and ask(button.IsShown, button) then
+                    local top = ask(button.GetTop, button)
+                    if type(top) == "number" and (highest == nil or top > highest) then
+                        highest, which = top, index
+                    end
+                end
+            end
+            header.highestItemTop, header.highestItemIndex = highest, which
+        end
+    end
+    return header
+end
+
 function Diagnostics:Performance()
     local result = {}
     if UpdateAddOnMemoryUsage and GetAddOnMemoryUsage then
@@ -136,6 +195,9 @@ function Diagnostics:Collect()
         bagBar = ns.BagBar and ns.BagBar:Describe() or "no module",
         bagSlots = {},
         windows = {},
+        header = describeHeader(),
+        sort = ns.Sort and ns.Sort:Report() or "absent",
+        layout = { order = ns.Reagents and ns.Reagents.order, reagentsAt = ns.Reagents and ns.Reagents.reagentsAt },
         errors = {},
         blockedActions = ns.blockedActions,
         unknownEvents = ns.unknownEvents,

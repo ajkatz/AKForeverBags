@@ -81,6 +81,34 @@ end
 
 Mock.realPrint("AKForeverBags tests")
 
+scenario("diag: the combined window's header is described - sort button, search box, highest item - and 'absent' when a client lacks them", function()
+    local ns = Mock.install()
+    SlashCmdList.AKFOREVERBAGS("diag")
+    local header = AKForeverBagsDB.diag.header
+    check(type(header) == "table", "a header record")
+    equal(header.sortButton, "absent", "this mock has no sort button")
+    equal(header.searchBox, "absent")
+
+    -- a client that has them: plain rects, read through the same guarded getters
+    local function frame(name, left, right, top, bottom, parent)
+        return { GetName = function() return name end, IsShown = function() return true end, IsVisible = function() return true end,
+            GetParent = function() return parent end, GetLeft = function() return left end, GetRight = function() return right end,
+            GetTop = function() return top end, GetBottom = function() return bottom end, GetWidth = function() return right - left end,
+            GetFrameStrata = function() return "MEDIUM" end, GetFrameLevel = function() return 3 end,
+            GetPoint = function() return "TOPRIGHT", parent, "TOPRIGHT", -9, -34 end }
+    end
+    -- (the mock's combined frame has no GetName; the client's does, so the stub parent carries one)
+    local combined = { GetName = function() return "ContainerFrameCombinedBags" end }
+    _G.BagItemAutoSortButton = frame("BagItemAutoSortButton", 300, 330, 700, 670, combined)
+    _G.BagItemSearchBox = frame("BagItemSearchBox", 62, 392, 700, 680, combined)
+    SlashCmdList.AKFOREVERBAGS("diag")
+    header = AKForeverBagsDB.diag.header
+    equal(header.sortButton.parent, "ContainerFrameCombinedBags")
+    equal(header.sortButton.right, 330)
+    equal(header.searchBox.right, 392, "a search box reaching past the button would show here")
+    check(type(header.columnsImplied) == "number", "the columns the width implies: " .. tostring(header.columnsImplied))
+    _G.BagItemAutoSortButton, _G.BagItemSearchBox = nil, nil
+end)
 scenario("Open All Bags: the reagent slots continue the bag window's own grid - Blizzard's buttons, only re-anchored, none of the normal slots moved", function()
     local ns = start() -- 56 normal slots: Blizzard fills cells 1-56, so its top row (51-60) has four cells free on the left
     Mock.openAllBags()
@@ -813,6 +841,272 @@ scenario("profiles under older spellings are adopted once: this profile keeps it
     equal(other.characterKey, "Stabby Bubson - TestRealm")
     equal(next(other.cdb.options), nil, "an empty profile of its own")
     equal(db.chars["Purrdee Bubson - TestRealm"].options.fromOld, "old")
+end)
+------------------------------------------------------------------------
+-- Sorting: a button of ours on Blizzard's invisible one, the client's own sort, and the pinned items
+-- swapped into the bottom-right cells afterwards - one landed move at a time.
+------------------------------------------------------------------------
+scenario("sort: a button of ours sits exactly on Blizzard's invisible one and runs the client's sort", function()
+    local ns = start()
+    Mock.openAllBags()
+    local button = AKForeverBagsSortButton
+    check(button, "the button exists")
+    local point, relativeTo, relativePoint, x, y = button:GetPoint(1)
+    equal(point, "TOPLEFT"); equal(relativeTo, ContainerFrameCombinedBags); equal(relativePoint, "TOPLEFT")
+    equal(x, 62, "lined up with the search box"); equal(y, -7, "centred in the blank title bar above it")
+    check(button.__Normal and button.__Normal.file:find("UI%-Panel%-Button%-Up"), "Blizzard's classic panel button art")
+    check(button.__Normal.__texCoord and button.__Normal.__texCoord[2] == 0.625, "cut to the 80 x 22 art in the file")
+    check(button.__Highlight and button.__Highlight.blend == "ADD")
+    check(button:GetFrameLevel() > AKForeverBagsReagentSlots:GetFrameLevel(), "above the reagent-slot backdrop")
+    check(button.label, "it says something"); equal(button.label.__text or button.label:GetText(), "Sort")
+    Mock.runScript(button, "OnClick")
+    equal(Mock.sortCalls, 1, "nothing to fill: the client's sort was asked for at once")
+    equal(ns.Sort.state, "sorting")
+end)
+
+scenario("sort: the reagent pouch is filled first - every pouch-eligible item in the ordinary bags moves into a free pouch slot before the client's sort", function()
+    local ns = start({ reagentSlots = 4 })
+    Mock.placeItem(1, 2, 2589, "Linen Cloth")                       -- ordinary
+    Mock.placeItem(1, 5, 17057, "Shiny Fish Scales", { reagent = true })
+    Mock.placeItem(3, 1, 17058, "Fish Oil", { reagent = true })
+    Mock.placeItem(5, 1, 4470, "Simple Wood", { reagent = true })   -- already in the pouch
+    Mock.openAllBags()
+
+    SlashCmdList.AKFOREVERBAGS("sort")
+    equal(ns.Sort.state, "filling", "the pouch comes first")
+    equal(Mock.sortCalls, 0, "the client's sort has not been asked for yet")
+    local rounds = 0
+    while ns.Sort.state == "filling" and rounds < 8 do Mock.settle(); rounds = rounds + 1 end
+    equal(Mock.itemAt(1, 5), nil, "the scales left the ordinary bag")
+    equal(Mock.itemAt(3, 1), nil, "and the oil")
+    local inPouch = 0
+    for slot = 1, 4 do if Mock.itemAt(5, slot) then inPouch = inPouch + 1 end end
+    equal(inPouch, 3, "three reagents in the pouch")
+    -- (the mock lands the queued client sort in the same settle, so the cloth may have moved WITHIN the
+    -- ordinary bags; what matters is that it never entered the pouch)
+    local clothInPouch, clothInBags = false, false
+    for slot = 1, 4 do if Mock.itemAt(5, slot) == 2589 then clothInPouch = true end end
+    for _, bag in ipairs({ 0, 1, 2, 3, 4 }) do
+        for slot = 1, 16 do if Mock.itemAt(bag, slot) == 2589 then clothInBags = true end end
+    end
+    equal(clothInPouch, false, "the cloth is not a reagent: never into the pouch")
+    equal(clothInBags, true, "it is still in the ordinary bags")
+    equal(ns.Sort.stats.filled, 2)
+    equal(Mock.sortCalls, 1, "then the client's sort")
+    while ns.Sort.state ~= "done" and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0)
+end)
+
+scenario("sort: a pinned reagent stays out of the pouch - pins win - and a full pouch, or none, means nothing to fill", function()
+    local ns = start({ reagentSlots = 1 })
+    Mock.placeItem(1, 3, 5175, "Earth Totem", { reagent = true })  -- pinned by default, and reagent-flagged
+    Mock.placeItem(2, 1, 17058, "Fish Oil", { reagent = true })
+    Mock.openAllBags()
+    SlashCmdList.AKFOREVERBAGS("sort")
+    local rounds = 0
+    while ns.Sort.state ~= "done" and not ns.Sort.state:find("^stopped") and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(Mock.itemAt(5, 1), 17058, "the oil took the one pouch slot")
+    local bottom = ns.Reagents:BottomCells(1)
+    equal(Mock.itemAt(bottom[1].bag, bottom[1].slot), 5175, "the totem is at the bottom of the ordinary bags, not in the pouch")
+
+    -- no pouch at all: the fill phase has nothing to do and the sort goes straight on
+    local ns2 = start({ reagentSlots = 0 })
+    Mock.placeItem(2, 1, 17058, "Fish Oil", { reagent = true })
+    Mock.openAllBags()
+    SlashCmdList.AKFOREVERBAGS("sort")
+    equal(ns2.Sort.state, "sorting", "no pouch: straight to the client's sort")
+    equal(Mock.itemAt(2, 1), 17058)
+end)
+
+scenario("sort: once the client's sort lands, the pinned items are swapped into the bottom-right cells, one landed move at a time", function()
+    local ns = start() -- a shaman: the four totems are pinned out of the box
+    Mock.placeItem(1, 3, 5175, "Earth Totem")
+    Mock.placeItem(2, 7, 5176, "Fire Totem")
+    Mock.placeItem(0, 1, 2589, "Linen Cloth")
+    Mock.openAllBags()
+    local bottom = ns.Reagents:BottomCells(2)
+    check(bottom and bottom[1] and bottom[2], "the two bottom cells are known bag slots")
+
+    SlashCmdList.AKFOREVERBAGS("sort")
+    equal(ns.Sort.state, "sorting")
+    Mock.settle() -- Blizzard's sort lands (it puts the cloth at the bottom by item id)
+    equal(ns.Sort.state, "pinning")
+    local rounds = 0
+    while ns.Sort.state == "pinning" and rounds < 8 do
+        Mock.settle() -- each move lands when the client says so
+        rounds = rounds + 1
+    end
+    equal(ns.Sort.state, "done")
+    bottom = ns.Reagents:BottomCells(2)
+    equal(Mock.itemAt(bottom[1].bag, bottom[1].slot), 5175, "Earth Totem at the very bottom right")
+    equal(Mock.itemAt(bottom[2].bag, bottom[2].slot), 5176, "Fire Totem beside it, in pin order")
+    check(ns.Sort.stats.moves >= 1 and ns.Sort.stats.moves <= 4, "a handful of moves, not a storm: " .. ns.Sort.stats.moves)
+    equal(Mock.cursorHeld(), false, "nothing left on the cursor")
+    equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0)
+end)
+
+scenario("sort: nothing moves in a fight, or while the cursor holds something", function()
+    local ns = start()
+    Mock.placeItem(1, 3, 5175, "Earth Totem")
+    Mock.openAllBags()
+    Mock.setCombat(true)
+    equal(ns.Sort:Run("test"), false)
+    equal(Mock.sortCalls, 0, "not even the client's sort")
+    Mock.setCombat(false)
+    C_Container.PickupContainerItem(1, 3) -- a hand full
+    equal(ns.Sort:Run("test"), false)
+    ClearCursor()
+    equal(ns.Sort:Run("test"), true)
+end)
+
+scenario("sort: pins are kept per character - by name or by item link - listed, and forgotten", function()
+    local ns = start()
+    SlashCmdList.AKFOREVERBAGS("pin Mana Potion")
+    SlashCmdList.AKFOREVERBAGS("pin |cff1eff00|Hitem:6948:0:0:0|h[Hearthstone]|h|r")
+    local pins = ns.Sort:GetPins()
+    equal(pins[#pins - 1], "Mana Potion"); equal(pins[#pins], 6948, "a link pins the item id")
+    SlashCmdList.AKFOREVERBAGS("unpin mana potion")
+    pins = ns.Sort:GetPins()
+    equal(pins[#pins], 6948)
+    for _, pin in ipairs(pins) do check(pin ~= "Mana Potion", "forgotten") end
+    SlashCmdList.AKFOREVERBAGS("pins")
+end)
+
+scenario("sort: item info the client refuses stops the run cleanly, nothing half-moved", function()
+    local ns = start()
+    Mock.placeItem(1, 3, 5175, "Earth Totem")
+    Mock.openAllBags()
+    Mock.itemInfoRaises(true)
+    SlashCmdList.AKFOREVERBAGS("sort")
+    Mock.settle()
+    check(ns.Sort.state:find("^stopped"), "stopped, with the reason: " .. ns.Sort.state)
+    equal(Mock.cursorHeld(), false)
+    Mock.itemInfoRaises(false)
+end)
+scenario("/fbags reagents bottom: the reagent rows at the bottom of the window - Blizzard's buttons moved up by that many, the same after a layout of Blizzard's, a pass of ours and a bag swap, and back on top on request", function()
+    local ns = start() -- 12 reagent slots: a full bottom row of them, two more at the right of the next
+    Mock.openAllBags()
+    local combined = ContainerFrameCombinedBags
+    SlashCmdList.AKFOREVERBAGS("reagents bottom")
+    equal(ns.Reagents.reagentsAt, "bottom")
+    check(printed("in the bottom rows"))
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "normal slot " .. index .. ": twelve cells further up")
+    end
+    local buttons = reagentButtons()
+    for slot = 1, 12 do
+        equal(cellOf(buttons[slot]), slot, "reagent slot " .. slot .. " in cell " .. slot .. " - slot 1 at the bottom right, as the backpack's own")
+    end
+    equal(ns.Reagents.state, "merged: 12 reagent slots under Blizzard's 56, 1 more row")
+    equal(combined:GetHeight(), Mock.combinedHeight() + 42, "the same one row more as on top")
+    -- a pass of ours over our own grid (an option change): the offset does not compound, and the origin is
+    -- still Blizzard's although none of its buttons stands in the bottom row any more
+    SlashCmdList.AKFOREVERBAGS("show")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "after a pass of ours: slot " .. index)
+    end
+    equal(combined:GetHeight(), Mock.combinedHeight() + 42)
+    -- Blizzard lays out again (a bag swap, the same count): the same picture at once
+    Mock.resizeBags(56)
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "after a layout of Blizzard's: slot " .. index)
+    end
+    -- a smaller bag: Blizzard's new cells are read afresh, and shifted
+    Mock.resizeBags(52)
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "after a bag swap: slot " .. index)
+    end
+    equal(ns.Reagents.state, "merged: 12 reagent slots under Blizzard's 52, 1 more row")
+    for slot = 1, 12 do
+        equal(cellOf(buttons[slot]), slot)
+    end
+    -- and back on top: Blizzard's own cells, the reagent slots after the last of them, as before
+    SlashCmdList.AKFOREVERBAGS("reagents top")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "back where Blizzard put it: slot " .. index)
+    end
+    equal(cellOf(buttons[12]), 53); equal(cellOf(buttons[1]), 64)
+    equal(ns.Reagents.state, "merged: 12 reagent slots after Blizzard's 52, 1 more row")
+    SlashCmdList.AKFOREVERBAGS("reagents sideways")
+    equal(ns:GetOption("reagentsAt"), "top", "a word that is neither changes nothing")
+    equal(#Mock.errors, 0)
+end)
+
+scenario("/fbags reagents bottom with order top: the backpack top left, the reagent rows still at the bottom - the two compose, and each is undone on its own", function()
+    local ns = start({ reagentSlots = 4 })
+    Mock.openAllBags()
+    local combined = ContainerFrameCombinedBags
+    SlashCmdList.AKFOREVERBAGS("reagents bottom")
+    SlashCmdList.AKFOREVERBAGS("order top")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), 4 + (56 + 1 - index), "mirrored within the cells above the reagent rows: slot " .. index)
+    end
+    local buttons = reagentButtons()
+    for slot = 1, 4 do
+        equal(cellOf(buttons[slot]), 5 - slot, "reagent slot " .. slot .. ": the highest slot at the bottom right, where the sequence from the top left ends")
+    end
+    equal(ns.Reagents.state, "merged: 4 reagent slots under Blizzard's 56, no extra row")
+    equal(combined:GetHeight(), Mock.combinedHeight(), "60 cells, six rows: Blizzard's own height")
+    Mock.resizeBags(56)
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), 4 + (56 + 1 - index), "again after a layout of Blizzard's: slot " .. index)
+    end
+    SlashCmdList.AKFOREVERBAGS("show")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), 4 + (56 + 1 - index), "stable over a pass of ours: slot " .. index)
+    end
+    SlashCmdList.AKFOREVERBAGS("order bottom")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 4, "Blizzard's order again, still above the reagent rows: slot " .. index)
+    end
+    for slot = 1, 4 do
+        equal(cellOf(buttons[slot]), slot, "and the reagent slots turned with it")
+    end
+    SlashCmdList.AKFOREVERBAGS("reagents top")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "Blizzard's picture: slot " .. index)
+    end
+    equal(cellOf(buttons[4]), 57); equal(cellOf(buttons[1]), 60)
+    equal(#Mock.errors, 0)
+end)
+
+scenario("reagents bottom: the sort's pinned items still go to the bottom of the ORDINARY bags - right above the reagent rows - and hide or off gives Blizzard's cells back", function()
+    local ns = start()
+    Mock.openAllBags()
+    local combined = ContainerFrameCombinedBags
+    SlashCmdList.AKFOREVERBAGS("reagents bottom")
+    local cells = ns.Reagents:BottomCells(2)
+    check(cells and cells[1] and cells[2], "two cells known")
+    equal(cells[1].bag, 0); equal(cells[1].slot, 1, "the backpack's first slot: the lowest of Blizzard's cells, cell 13 now")
+    equal(cells[2].bag, 0); equal(cells[2].slot, 2)
+    -- put away: no room is kept at the bottom
+    SlashCmdList.AKFOREVERBAGS("hide")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "put away: slot " .. index .. " back in Blizzard's cell")
+    end
+    equal(combined:GetHeight(), Mock.combinedHeight())
+    SlashCmdList.AKFOREVERBAGS("show")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "shown again: slot " .. index)
+    end
+    -- off: everything of ours undone, the grid included
+    SlashCmdList.AKFOREVERBAGS("off")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "off: slot " .. index .. " in Blizzard's cell")
+    end
+    SlashCmdList.AKFOREVERBAGS("on")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "on again: slot " .. index)
+    end
+    -- closed and opened: Blizzard lays out, and the rows are at the bottom again at once
+    Mock.closeAllBags(); Mock.openAllBags()
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index + 12, "reopened: slot " .. index)
+    end
+    equal(ns.Reagents.state, "merged: 12 reagent slots under Blizzard's 56, 1 more row")
+    equal(#Mock.errors, 0)
 end)
 
 Mock.realPrint(string.format("\n%d passed, %d failed", passed, #failures))

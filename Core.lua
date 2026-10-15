@@ -185,6 +185,7 @@ local OPTION_DEFAULTS = {
     backpackKeyOpensAll = true, -- the backpack key opens the reagent bag as well (the merge needs it open)
     bagBar = "window",          -- the bag buttons: "window" = docked under the bag window | "show" | "hide" (BagBar.lua)
     bagBarShown = true,         -- ... and while docked: shown, or folded away behind the little arrow
+    reagentsAt = "top",         -- the reagent slots: "top" (after the last of Blizzard's) | "bottom" (the bottom rows, Blizzard's moved up)
     order = "bottom",           -- the backpack in the combined window: "bottom" (Blizzard's, since build 70291) | "top" (as before it)
 }
 

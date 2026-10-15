@@ -140,6 +140,7 @@ function methods.SetFrameStrata(self, strata) guard(self, "SetFrameStrata"); sel
 getter("GetFrameStrata", function(self) return self.__strata or (self.__parent and self.__parent:GetFrameStrata()) or "MEDIUM" end)
 function methods.SetFrameLevel(self, level) self.__level = level end
 getter("GetFrameLevel", function(self) return self.__level or 1 end)
+getter("GetBagID", function(self) return self.__bag end)
 getter("GetScale", function(self) return self.__scale or 1 end)
 function methods.SetScale(self, scale) self.__scale = scale end
 getter("GetRect", function(self)
@@ -179,7 +180,14 @@ function methods.SetColorTexture(self, r, g, b, a) self.__color = { r, g, b, a }
 function methods.SetVertexColor(self, r, g, b) self.__vertexColor = { r, g, b } end
 function methods.SetTexCoord(self, ...) self.__texCoord = { ... } end
 function methods.SetOwner(self, owner) self.__owner = owner end
-for _, name in ipairs({ "SetHighlightTexture", "AddLine", "EnableMouse", "SetJustifyH", "SetTextColor", "RegisterForClicks" }) do
+-- a Button's state textures: set, and handed back as textures so their coordinates can be set
+for _, state in ipairs({ "Normal", "Pushed", "Highlight" }) do
+    methods["Set" .. state .. "Texture"] = function(self, file, blend)
+        self["__" .. state] = { file = file, blend = blend, SetTexCoord = function(t, ...) t.__texCoord = { ... } end }
+    end
+    methods["Get" .. state .. "Texture"] = function(self) return self["__" .. state] end
+end
+for _, name in ipairs({ "AddLine", "EnableMouse", "SetJustifyH", "SetTextColor", "RegisterForClicks" }) do
     methods[name] = function() end
 end
 
@@ -401,12 +409,157 @@ function Mock.install(options)
             Mock.fire("CVAR_UPDATE", name, value)
         end,
     })
-    global("C_Container", { GetContainerNumSlots = function(bag)
+    -- Bag contents: [bag] = { [slot] = { itemID, itemName, locked } }. The cursor holds one picked-up
+    -- item; a second PickupContainerItem on another slot queues a swap that lands on Mock.settle(), the
+    -- way the client's lands a moment later - locks stay until then. SortBags is asynchronous too.
+    state.contents, state.cursor, state.pendingMove, state.sortPending = {}, nil, nil, false
+    local function slotCount(bag)
         if bag == 5 then
             return state.reagentSlots
         end
         return bag == 0 and 16 or 10
-    end })
+    end
+    local function contents(bag)
+        state.contents[bag] = state.contents[bag] or {}
+        return state.contents[bag]
+    end
+    Mock.sortCalls = 0
+    local REAGENT_FAMILY = 0x8000 -- whatever bit the client uses, the addon reads it rather than knowing it
+    state.itemFamilies = {}
+    function Mock.placeItem(bag, slot, itemID, name, flags)
+        contents(bag)[slot] = { itemID = itemID, itemName = name }
+        if flags and flags.reagent then
+            state.itemFamilies[itemID] = REAGENT_FAMILY
+        end
+    end
+    global("bit", { band = function(a, b) return a & b end })
+    if type(_G.C_Item) == "table" then
+        _G.C_Item.GetItemFamily = function(itemID) return state.itemFamilies[itemID] or 0 end
+    else
+        global("C_Item", { GetItemFamily = function(itemID) return state.itemFamilies[itemID] or 0 end })
+    end
+    function Mock.itemAt(bag, slot)
+        local item = contents(bag)[slot]
+        return item and item.itemID or nil
+    end
+    function Mock.cursorHeld()
+        return state.cursor ~= nil
+    end
+    function Mock.itemInfoRaises(raises)
+        state.itemInfoRaises = raises
+    end
+    local function fireLock(bag, slot)
+        Mock.fire("ITEM_LOCK_CHANGED", bag, slot)
+    end
+    global("C_Container", {
+        GetContainerNumSlots = slotCount,
+        GetContainerNumFreeSlots = function(bag)
+            local free = 0
+            for slot = 1, slotCount(bag) do
+                if not contents(bag)[slot] then free = free + 1 end
+            end
+            return free, bag == 5 and REAGENT_FAMILY or 0
+        end,
+        GetContainerItemInfo = function(bag, slot)
+            if state.itemInfoRaises then
+                error("GetContainerItemInfo(): refused")
+            end
+            local item = contents(bag)[slot]
+            if not item then
+                return nil
+            end
+            return { itemID = item.itemID, itemName = item.itemName, isLocked = item.locked == true, stackCount = 1,
+                hyperlink = "|Hitem:" .. item.itemID .. "|h[" .. item.itemName .. "]|h", quality = 1 }
+        end,
+        GetContainerItemID = function(bag, slot)
+            local item = contents(bag)[slot]
+            return item and item.itemID or nil
+        end,
+        PickupContainerItem = function(bag, slot)
+            if not state.cursor then
+                local item = contents(bag)[slot]
+                if not item or item.locked then
+                    return -- nothing to pick up, or the client will not let a moving item be taken
+                end
+                state.cursor = { bag = bag, slot = slot }
+                item.locked = true
+                fireLock(bag, slot)
+                return
+            end
+            local from = state.cursor
+            state.cursor = nil
+            if from.bag == bag and from.slot == slot then
+                contents(bag)[slot].locked = false -- put back where it was
+                fireLock(bag, slot)
+                return
+            end
+            local there = contents(bag)[slot]
+            if there then
+                there.locked = true
+            end
+            state.pendingMove = { from = from, to = { bag = bag, slot = slot } }
+            fireLock(bag, slot)
+        end,
+        SortBags = function()
+            Mock.sortCalls = Mock.sortCalls + 1
+            state.sortPending = true
+        end,
+    })
+    global("GetCursorInfo", function() return state.cursor and "item" or nil end)
+    global("ClearCursor", function()
+        if state.cursor then
+            local item = contents(state.cursor.bag)[state.cursor.slot]
+            if item then item.locked = false end
+            state.cursor = nil
+        end
+    end)
+    if not G.UnitClass then
+        global("UnitClass", function() return "Shaman", "SHAMAN" end)
+    end
+    -- the client catching up: a queued swap lands, the queued sort lands, and the bags say so
+    function Mock.settle()
+        local touched = {}
+        if state.pendingMove then
+            local move = state.pendingMove
+            state.pendingMove = nil
+            local a, b = contents(move.from.bag), contents(move.to.bag)
+            local moving, there = a[move.from.slot], b[move.to.slot]
+            b[move.to.slot], a[move.from.slot] = moving, there
+            if moving then moving.locked = false end
+            if there then there.locked = false end
+            fireLock(move.from.bag, move.from.slot)
+            fireLock(move.to.bag, move.to.slot)
+            touched[move.from.bag], touched[move.to.bag] = true, true
+        end
+        if state.sortPending then
+            state.sortPending = false
+            local items = {}
+            for _, bag in ipairs({ 0, 1, 2, 3, 4 }) do
+                for slot = 1, slotCount(bag) do
+                    local item = contents(bag)[slot]
+                    if item then
+                        items[#items + 1] = item
+                        contents(bag)[slot] = nil
+                    end
+                end
+                touched[bag] = true
+            end
+            table.sort(items, function(x, y) return x.itemID < y.itemID end)
+            local index = 1
+            for _, bag in ipairs({ 0, 1, 2, 3, 4 }) do
+                for slot = 1, slotCount(bag) do
+                    if items[index] then
+                        contents(bag)[slot] = items[index]
+                        index = index + 1
+                    end
+                end
+            end
+        end
+        for bag in pairs(touched) do
+            Mock.fire("BAG_UPDATE", bag)
+        end
+        Mock.fire("BAG_UPDATE_DELAYED")
+    end
     global("C_Timer", {
         After = function(delay, fn) Mock.timers[#Mock.timers + 1] = { at = Mock.now + delay, fn = fn } end,
         NewTicker = function(interval, fn)
@@ -492,7 +645,15 @@ function Mock.install(options)
                     button.__itemButton = true
                     combinedPool[index] = button
                 end
-                button:SetID(index)
+                -- the client numbers a combined button by its BAG and SLOT; the combined index is ours
+                local bag, slot
+                if index <= 16 then
+                    bag, slot = 0, index
+                else
+                    bag, slot = 1 + math.floor((index - 17) / 10), (index - 17) % 10 + 1
+                end
+                rawset(button, "__bag", bag)
+                button:SetID(slot)
                 button:SetSize(37, 37)
                 button:Show()
                 items[index] = button

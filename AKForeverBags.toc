@@ -13,4 +13,5 @@
 Core.lua
 Reagents.lua
 BagBar.lua
+Sort.lua
 Diagnostics.lua

@@ -50,7 +50,8 @@ gives each of them a **slot background in another colour** (green; with a thin r
 an item). No section of their own, no header: Blizzard fills its grid from the bottom right, which leaves
 the left end of the top row empty - the reagent slots take those cells, then rows of their own on top, and
 the window grows by exactly the rows that are needed (none, if they fit into the gap). None of Blizzard's
-normal slots is moved.
+normal slots is moved. (Or, with `/fbags reagents bottom`, the reagent slots take the bottom rows and
+Blizzard's slots move up by that many - asked for on CurseForge.)
 
 | | |
 |---|---|
@@ -58,6 +59,7 @@ normal slots is moved.
 | `/fbags show` / `hide` | reagent slots shown in the grid (default) / put away - the bag window then looks stock. Remembered over a logout |
 | `/fbags key on` / `off` | the backpack key opens the reagent bag too (default on, see below) |
 | `/fbags order top` / `bottom` | where the backpack stands in the combined window: `bottom` (default) is Blizzard's layout since client build 70291 (Oct 8 2026), `top` the picture before it - the backpack's first slot top left. Blizzard's buttons, only re-anchored, after every layout of Blizzard's |
+| `/fbags reagents top` / `bottom` | where the reagent slots stand: `top` (default) after the last of Blizzard's cells, `bottom` in the bottom rows with Blizzard's slots moved up above them. Composes with `order` |
 | `/fbags status`, `/fbags diag` | what it is doing; a report into the settings file (then `/reload`) |
 
 ### How - and what it deliberately does not do
@@ -173,6 +175,27 @@ here in 0.3.0 because it is about bags (that addon leaves the bar alone while th
 
 To take a bag OFF without the buttons: `/run PickupBagFromSlot(C_Container.ContainerIDToInventoryID(4)) PutItemInBackpack()`
 (bag 1-4 counted from the backpack, the bag must be empty) - what Blizzard's own "Unequip Bag" menu entry runs.
+
+## Sorting, and what stays at the bottom
+
+Blizzard's combined bag window has a sort button at its top right, next to the search box. On this client it
+is there and draws nothing - its artwork is missing - with or without addons (measured 2026-10-14). So the
+addon puts a button of its own in the window's title bar, lined up with the search box. It does three things:
+first every item that belongs in the **reagent pouch** (the client says which - a bag's family against an
+item's) is moved into a free pouch slot; then Blizzard's own sort, `C_Container.SortBags()`; then the items
+you pinned are swapped into the **bottom-right cells** of the window - visually the bottom, in either
+`/fbags order`, and right above the reagent rows when `/fbags reagents bottom` has put those there - one
+move at a time, each waited out (items lock while they move), using nothing but the client's own
+item-moving calls. A shaman starts with the four totems pinned.
+
+```
+/fbags sort                sort, then put the pinned items at the bottom
+/fbags pin <name or link>  keep that item at the bottom (first pinned = bottom-right corner)
+/fbags unpin <name>        forget it
+/fbags pins                what is pinned
+```
+
+Nothing runs in a fight, and nothing starts while the cursor holds something.
 
 ## Development
 
