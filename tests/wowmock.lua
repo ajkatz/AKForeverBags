@@ -412,7 +412,7 @@ function Mock.install(options)
     -- Bag contents: [bag] = { [slot] = { itemID, itemName, locked } }. The cursor holds one picked-up
     -- item; a second PickupContainerItem on another slot queues a swap that lands on Mock.settle(), the
     -- way the client's lands a moment later - locks stay until then. SortBags is asynchronous too.
-    state.contents, state.cursor, state.pendingMove, state.sortPending = {}, nil, nil, false
+    state.contents, state.cursor, state.pendingMoves, state.sortPending = {}, nil, {}, false
     local function slotCount(bag)
         if bag == 5 then
             return state.reagentSlots
@@ -444,6 +444,9 @@ function Mock.install(options)
     end
     function Mock.cursorHeld()
         return state.cursor ~= nil
+    end
+    function Mock.pendingMoves() -- swaps the client has not landed yet
+        return #state.pendingMoves
     end
     function Mock.itemInfoRaises(raises)
         state.itemInfoRaises = raises
@@ -494,10 +497,14 @@ function Mock.install(options)
                 return
             end
             local there = contents(bag)[slot]
+            if there and there.locked then
+                state.cursor = from -- the client refuses a drop on a slot that is mid-move: the hand stays full
+                return
+            end
             if there then
                 there.locked = true
             end
-            state.pendingMove = { from = from, to = { bag = bag, slot = slot } }
+            state.pendingMoves[#state.pendingMoves + 1] = { from = from, to = { bag = bag, slot = slot } }
             fireLock(bag, slot)
         end,
         SortBags = function()
@@ -519,9 +526,9 @@ function Mock.install(options)
     -- the client catching up: a queued swap lands, the queued sort lands, and the bags say so
     function Mock.settle()
         local touched = {}
-        if state.pendingMove then
-            local move = state.pendingMove
-            state.pendingMove = nil
+        local moves = state.pendingMoves
+        state.pendingMoves = {}
+        for _, move in ipairs(moves) do
             local a, b = contents(move.from.bag), contents(move.to.bag)
             local moving, there = a[move.from.slot], b[move.to.slot]
             b[move.to.slot], a[move.from.slot] = moving, there

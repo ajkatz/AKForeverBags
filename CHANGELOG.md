@@ -2,11 +2,14 @@
 
 ## 0.4.0
 
-- **A sort button, the reagent pouch first, and pins.** Blizzard's sort button draws nothing on this client
-  (its artwork is missing), so a classic panel button of ours sits in the window's title bar. It fills the
+- **The reagent pouch first, pins at the bottom - around the client's sort.** `/fbags sort` fills the
   reagent pouch with everything that belongs there, runs the client's sort, then swaps the pinned items
-  into the bottom-right cells of the window - one landed move at a time. `/fbags sort`, `/fbags pin <item>`,
-  `/fbags unpin`, `/fbags pins`; a shaman's four totems are pinned out of the box.
+  into the bottom-right cells of the window, everything else keeping its order and closing up (one
+  permutation, done in two rounds of simultaneous swaps). Every sort the client runs on its
+  own (Blizzard's button, `/sort`) is followed by the same pouch fill and pins (`/fbags sort auto off`
+  leaves it alone). `/fbags pin <item>`, `/fbags unpin`, `/fbags pins`; a shaman's four totems are pinned
+  out of the box. (Blizzard's sort button drew nothing on client builds up to 70338; 1.60.1.70425 has its
+  artwork back, so there is no button of ours.)
 - **`/fbags reagents bottom`: the reagent rows at the bottom of the window** (asked for on CurseForge). The
   reagent slots take the bottom cells and Blizzard's buttons move up by that many - the same re-anchoring
   `order top` does for the mirror, and the two compose. `reagents top` (the default) is the picture as

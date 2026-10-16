@@ -35,6 +35,9 @@ normal slots, each with a green slot background so you can tell them apart.
 | `/fbags off` / `on` | Blizzard's separate reagent window / the merged view (default) |
 | `/fbags key off` / `on` | leave the backpack key alone / it opens all bags (default) |
 | `/fbags order top` / `bottom` | the backpack top left in the combined window, as before October 8 / at the bottom, as the client lays it out now (default) |
+| `/fbags reagents top` / `bottom` | the reagent slots after the last of Blizzard's, at the top (default) / in the bottom rows, Blizzard's slots above them |
+| `/fbags sort` | the reagent pouch filled first, the client's sort, then your pinned items at the very bottom. The client's own sort (its button, `/sort`) gets the pouch fill and the pins too; `/fbags sort auto off` leaves it alone |
+| `/fbags pin <item>` / `unpin <item>` / `pins` | what stays at the bottom after a sort (a shaman's four totems out of the box) |
 | `/fbags bagbar window` / `show` / `hide` | the bag buttons docked under the bag window (default) / in Blizzard's place, always / away |
 | `/fbags bagbar fold` / `unfold` | what the arrow under the bag window's corner does; remembered over a logout |
 | `/fbags status`, `/fbags diag` | what it is doing; a report for bug reports |

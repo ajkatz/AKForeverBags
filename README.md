@@ -178,18 +178,27 @@ To take a bag OFF without the buttons: `/run PickupBagFromSlot(C_Container.Conta
 
 ## Sorting, and what stays at the bottom
 
-Blizzard's combined bag window has a sort button at its top right, next to the search box. On this client it
-is there and draws nothing - its artwork is missing - with or without addons (measured 2026-10-14). So the
-addon puts a button of its own in the window's title bar, lined up with the search box. It does three things:
-first every item that belongs in the **reagent pouch** (the client says which - a bag's family against an
-item's) is moved into a free pouch slot; then Blizzard's own sort, `C_Container.SortBags()`; then the items
-you pinned are swapped into the **bottom-right cells** of the window - visually the bottom, in either
-`/fbags order`, and right above the reagent rows when `/fbags reagents bottom` has put those there - one
-move at a time, each waited out (items lock while they move), using nothing but the client's own
-item-moving calls. A shaman starts with the four totems pinned.
+Blizzard's combined bag window has a sort button at its top right, next to the search box. (On client builds
+up to 70338 it drew nothing - its artwork was missing - and this addon showed a button of its own; build
+1.60.1.70425 brought the artwork back, so there is no button of ours any more.) What the addon adds happens
+around that sort: first every item that belongs in the **reagent pouch** (the client says which - a bag's
+family against an item's) is moved into a free pouch slot; then Blizzard's own sort, `C_Container.SortBags()`;
+then the items you pinned are swapped into the **bottom-right cells** of the window - visually the bottom, in
+either `/fbags order`, and right above the reagent rows when `/fbags reagents bottom` has put those there.
+That is a stable move: everything else keeps the order the sort gave it and closes up, like a list
+deletion and an insert at the end. It is worked out as one permutation of the cells and done in two rounds
+of simultaneous swaps on disjoint slots (any permutation is the product of two involutions), each round
+waited out, using nothing but the client's own item-moving calls. A shaman starts with the four totems
+pinned.
+
+`/fbags sort` runs the whole pass. And every sort the client runs on its own - Blizzard's button, `/sort` -
+is followed by the same pass minus the sort itself: the pouch fill (with one more sort of the client's to
+close the gaps, if anything went in), then the pins. That is a post-hook on `C_Container.SortBags`;
+`/fbags sort auto off` switches it off.
 
 ```
-/fbags sort                sort, then put the pinned items at the bottom
+/fbags sort                the pouch first, the client's sort, then the pinned items at the bottom
+/fbags sort auto on|off    whether the client's own sort gets the pouch fill and the pins too (default on)
 /fbags pin <name or link>  keep that item at the bottom (first pinned = bottom-right corner)
 /fbags unpin <name>        forget it
 /fbags pins                what is pinned

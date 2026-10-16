@@ -121,7 +121,6 @@ local function describeHeader()
         sortButton = rectOf(_G.BagItemAutoSortButton),
         searchBox = rectOf(_G.BagItemSearchBox),
         backdrop = rectOf(_G.AKForeverBagsReagentSlots),
-        ourSortButton = rectOf(_G.AKForeverBagsSortButton),
         titleBar = rectOf(type(_G.ContainerFrameCombinedBags) == "table" and _G.ContainerFrameCombinedBags.TitleContainer),
         portrait = rectOf(type(_G.ContainerFrameCombinedBags) == "table" and _G.ContainerFrameCombinedBags.PortraitContainer),
     }

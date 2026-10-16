@@ -846,22 +846,59 @@ end)
 -- Sorting: a button of ours on Blizzard's invisible one, the client's own sort, and the pinned items
 -- swapped into the bottom-right cells afterwards - one landed move at a time.
 ------------------------------------------------------------------------
-scenario("sort: a button of ours sits exactly on Blizzard's invisible one and runs the client's sort", function()
-    local ns = start()
+scenario("sort: no button of ours (Blizzard's draws again since client 1.60.1.70425); the client's own sort - its button, /sort - is followed by the pouch fill, one closing sort and the pins; 'sort auto off' leaves it alone", function()
+    local ns = start({ reagentSlots = 4 })
+    Mock.placeItem(1, 3, 5175, "Earth Totem")
+    Mock.placeItem(2, 1, 17058, "Fish Oil", { reagent = true })
+    Mock.placeItem(0, 1, 2589, "Linen Cloth")
     Mock.openAllBags()
-    local button = AKForeverBagsSortButton
-    check(button, "the button exists")
-    local point, relativeTo, relativePoint, x, y = button:GetPoint(1)
-    equal(point, "TOPLEFT"); equal(relativeTo, ContainerFrameCombinedBags); equal(relativePoint, "TOPLEFT")
-    equal(x, 62, "lined up with the search box"); equal(y, -7, "centred in the blank title bar above it")
-    check(button.__Normal and button.__Normal.file:find("UI%-Panel%-Button%-Up"), "Blizzard's classic panel button art")
-    check(button.__Normal.__texCoord and button.__Normal.__texCoord[2] == 0.625, "cut to the 80 x 22 art in the file")
-    check(button.__Highlight and button.__Highlight.blend == "ADD")
-    check(button:GetFrameLevel() > AKForeverBagsReagentSlots:GetFrameLevel(), "above the reagent-slot backdrop")
-    check(button.label, "it says something"); equal(button.label.__text or button.label:GetText(), "Sort")
-    Mock.runScript(button, "OnClick")
-    equal(Mock.sortCalls, 1, "nothing to fill: the client's sort was asked for at once")
-    equal(ns.Sort.state, "sorting")
+    equal(rawget(_G, "AKForeverBagsSortButton"), nil, "no button of ours")
+    equal(ns.Sort.hooked, true, "the client's sort is hooked")
+
+    Mock.asBlizzard(function() C_Container.SortBags() end) -- Blizzard's button
+    equal(Mock.sortCalls, 1)
+    equal(ns.Sort.state, "sorting", "noted: a sort of the client's own is in flight")
+    Mock.settle() -- it lands
+    equal(ns.Sort.state, "filling", "then the pouch")
+    local rounds = 0
+    while ns.Sort.state ~= "done" and not ns.Sort.state:find("^stopped") and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(Mock.itemAt(5, 1), 17058, "the oil went into the pouch")
+    equal(Mock.sortCalls, 2, "one more sort of the client's closed the gap the oil left")
+    local bottom = ns.Reagents:BottomCells(1)
+    equal(Mock.itemAt(bottom[1].bag, bottom[1].slot), 5175, "and the totem is at the bottom")
+
+    -- nothing to fill: the pins follow the client's sort directly, no second sort
+    Mock.placeItem(0, 3, 5176, "Fire Totem")
+    Mock.asBlizzard(function() C_Container.SortBags() end)
+    equal(Mock.sortCalls, 3)
+    rounds = 0
+    while ns.Sort.state ~= "done" and not ns.Sort.state:find("^stopped") and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(Mock.sortCalls, 3, "no sort of ours when nothing went into the pouch")
+    bottom = ns.Reagents:BottomCells(2)
+    equal(Mock.itemAt(bottom[1].bag, bottom[1].slot), 5175); equal(Mock.itemAt(bottom[2].bag, bottom[2].slot), 5176)
+
+    -- switched off: the client's sort is the client's sort
+    SlashCmdList.AKFOREVERBAGS("sort auto off")
+    equal(ns:GetOption("sortFollow"), false)
+    Mock.placeItem(3, 2, 17057, "Shiny Fish Scales", { reagent = true })
+    Mock.asBlizzard(function() C_Container.SortBags() end)
+    equal(ns.Sort.state, "done", "nothing of ours started")
+    Mock.settle()
+    local scalesInPouch = false
+    for slot = 1, 4 do if Mock.itemAt(5, slot) == 17057 then scalesInPouch = true end end
+    equal(scalesInPouch, false, "the scales stayed where the client's sort put them")
+    SlashCmdList.AKFOREVERBAGS("sort auto on")
+    equal(ns:GetOption("sortFollow"), true)
+
+    -- our own sort never follows itself
+    SlashCmdList.AKFOREVERBAGS("sort")
+    rounds = 0
+    while ns.Sort.state ~= "done" and not ns.Sort.state:find("^stopped") and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(ns.Sort.stats.runs, 3, "three runs: two followed, one asked for - the sort inside a run of ours is not followed again")
+    equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0); equal(#Mock.errors, 0)
 end)
 
 scenario("sort: the reagent pouch is filled first - every pouch-eligible item in the ordinary bags moves into a free pouch slot before the client's sort", function()
@@ -920,7 +957,7 @@ scenario("sort: a pinned reagent stays out of the pouch - pins win - and a full 
     equal(Mock.itemAt(2, 1), 17058)
 end)
 
-scenario("sort: once the client's sort lands, the pinned items are swapped into the bottom-right cells, one landed move at a time", function()
+scenario("sort: once the client's sort lands, the pinned items go to the bottom-right cells - in rounds of swaps, each round landed before the next", function()
     local ns = start() -- a shaman: the four totems are pinned out of the box
     Mock.placeItem(1, 3, 5175, "Earth Totem")
     Mock.placeItem(2, 7, 5176, "Fire Totem")
@@ -945,6 +982,36 @@ scenario("sort: once the client's sort lands, the pinned items are swapped into 
     check(ns.Sort.stats.moves >= 1 and ns.Sort.stats.moves <= 4, "a handful of moves, not a storm: " .. ns.Sort.stats.moves)
     equal(Mock.cursorHeld(), false, "nothing left on the cursor")
     equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0)
+end)
+
+scenario("sort: a STABLE move - the pinned items to the bottom, everything else keeping its order and closing up, in two rounds of simultaneous swaps however far they travelled", function()
+    local ns = start()
+    for i = 1, 10 do Mock.placeItem(1, i, 1000 + i, "Item " .. i) end -- ten ordinary items, in order by id
+    Mock.placeItem(0, 2, 5178, "Air Totem")
+    Mock.placeItem(0, 5, 5176, "Fire Totem")
+    Mock.placeItem(2, 3, 5175, "Earth Totem")
+    Mock.placeItem(2, 8, 5177, "Water Totem")
+    Mock.openAllBags()
+    SlashCmdList.AKFOREVERBAGS("sort")
+    Mock.settle() -- the client's sort lands: items 1-10 in cells 1-10, the four totems after them, far from the bottom
+    equal(Mock.itemAt(0, 11), 5175, "sorted by id, the totems came last")
+    equal(ns.Sort.state, "pinning")
+    check(Mock.pendingMoves() > 1, "a whole round went out at once: " .. Mock.pendingMoves() .. " swaps in flight")
+    local rounds = 0
+    while ns.Sort.state == "pinning" and rounds < 6 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    equal(ns.Sort.stats.rounds, 2, "two rounds, whatever the distance")
+    local cells = ns.Reagents:Cells()
+    equal(Mock.itemAt(cells[1].bag, cells[1].slot), 5175, "Earth at the very bottom")
+    equal(Mock.itemAt(cells[2].bag, cells[2].slot), 5176, "Fire")
+    equal(Mock.itemAt(cells[3].bag, cells[3].slot), 5177, "Water")
+    equal(Mock.itemAt(cells[4].bag, cells[4].slot), 5178, "Air - in pin order")
+    for i = 1, 10 do
+        equal(Mock.itemAt(cells[4 + i].bag, cells[4 + i].slot), 1000 + i, "item " .. i .. " kept its place in the order, shifted up by four")
+    end
+    check(ns.Sort.stats.moves <= 14, "a round or two of swaps, not a hop per cell: " .. ns.Sort.stats.moves)
+    equal(Mock.cursorHeld(), false)
+    equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0); equal(#Mock.errors, 0)
 end)
 
 scenario("sort: nothing moves in a fight, or while the cursor holds something", function()

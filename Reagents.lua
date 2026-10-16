@@ -527,9 +527,6 @@ function Reagents:Apply()
     end
     local grid = readGrid(combined)
     Reagents.lastGrid = grid -- (Sort.lua asks which bag slot each bottom cell is)
-    if ns.Sort then
-        ns.Sort:EnsureButton() -- the first call makes it; every other returns it
-    end
     if not grid then
         return unmerge(combined, reagent, "the bag window's grid is not one we know - left alone")
     end
@@ -751,12 +748,12 @@ end)
 ns:RegisterCommand("status", "what is being done with the reagent slots right now", report)
 
 ------------------------------------------------------------------------
--- For Sort.lua: the lowest cells of the ORDINARY bags in the combined view, as bag slots - the bottom
--- right whatever /fbags order says (the cells come from the buttons' anchors, and the layout keeps them
--- true), and right above the reagent rows when those sit at the bottom: a pinned item cannot go into the
--- reagent pouch.
+-- For Sort.lua: the cells of the ORDINARY bags in the combined view, lowest first, as bag slots - cell 1
+-- is the bottom right whatever /fbags order says (the cells come from the buttons' anchors, and the
+-- layout keeps them true), and the lowest ordinary cells sit right above the reagent rows when those are
+-- at the bottom: a pinned item cannot go into the reagent pouch.
 ------------------------------------------------------------------------
-function Reagents:BottomCells(count)
+function Reagents:Cells()
     local grid = self.lastGrid
     if not grid or type(grid.cells) ~= "table" then
         return nil, "the bag window's grid is not known - open your bags"
@@ -766,18 +763,29 @@ function Reagents:BottomCells(count)
         entries[#entries + 1] = entry
     end
     table.sort(entries, function(a, b) return a.cell < b.cell end)
-    if #entries < count then
+    local out = {}
+    for index, entry in ipairs(entries) do
+        local bag = ns.Readable(entry.button.GetBagID, entry.button)
+        local slot = ns.Readable(entry.button.GetID, entry.button)
+        if not bag or not slot or type(bag[1]) ~= "number" or type(slot[1]) ~= "number" then
+            return nil, "a cell's bag slot is unreadable"
+        end
+        out[index] = { bag = bag[1], slot = slot[1] }
+    end
+    return out
+end
+
+function Reagents:BottomCells(count)
+    local cells, why = self:Cells()
+    if not cells then
+        return nil, why
+    end
+    if #cells < count then
         return nil, "the window's grid has fewer cells than that"
     end
     local out = {}
     for index = 1, count do
-        local button = entries[index].button
-        local bag = ns.Readable(button.GetBagID, button)
-        local slot = ns.Readable(button.GetID, button)
-        if not bag or not slot or type(bag[1]) ~= "number" or type(slot[1]) ~= "number" then
-            return nil, "a bottom cell's bag slot is unreadable"
-        end
-        out[index] = { bag = bag[1], slot = slot[1] }
+        out[index] = cells[index]
     end
     return out
 end

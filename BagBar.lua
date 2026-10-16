@@ -44,6 +44,8 @@ local DOCK = { point = "TOPRIGHT", relativePoint = "BOTTOMRIGHT", x = -4, y = -2
 local TOGGLE_SIZE = 18
 
 BagBar.state = "untouched"
+BagBar.moved = {}   -- the last foreign anchors seen while docked (who moved the bar, and when), for /fbags diag
+local hinted = false -- the "drag it once in Edit Mode" hint, once per session
 BagBar.hooks = {}
 
 local hiddenParent = CreateFrame("Frame", "AKForeverBagsHidden", UIParent)
@@ -233,6 +235,9 @@ function BagBar:Apply()
         setState("Blizzard's place (its action bars are on the screen)")
     elseif dock then
         docking = true
+        if self.state == "docked on the bag window" and not (parentIsOurs and anchorIsOurs) then
+            self:NoteForeignAnchor(frame, parent[1], anchor)
+        end
         if ns:GetOption("bagBarShown") then
             setParent(dock)
             setAnchor(DOCK.point, dock, DOCK.relativePoint, DOCK.x - TOGGLE_SIZE - 2, DOCK.y) -- left of the arrow
@@ -251,10 +256,50 @@ function BagBar:Apply()
     updateToggle(docking and dock or nil)
 end
 
+-- Edit Mode's own word on the bar: in its default position - then Edit Mode's stacking of its action bars
+-- (secure code, in a fight too) re-anchors it whenever that stacking runs - or not
+function BagBar:InDefaultPosition()
+    local frame = bar()
+    if not frame or type(frame.IsInDefaultPosition) ~= "function" then
+        return nil
+    end
+    local answer = ns.Readable(frame.IsInDefaultPosition, frame)
+    return answer and answer[1] == true
+end
+
+-- Somebody else parented or anchored the bar while it was docked: remember who, and say once what ends it
+-- while Edit Mode still counts the bar as in its default position.
+function BagBar:NoteForeignAnchor(frame, parent, anchor)
+    local target = anchor and anchor[2]
+    local casting = ns.Readable(UnitCastingInfo, "player")
+    local function nameOf(object)
+        if type(object) ~= "table" then
+            return tostring(object)
+        end
+        local name = ns.Readable(object.GetName, object)
+        return name and name[1] or "(unnamed)"
+    end
+    local record = {
+        when = GetTime and GetTime() or 0, combat = InCombatLockdown() == true,
+        parent = nameOf(parent), point = anchor and anchor[1], relativeTo = nameOf(target), relativePoint = anchor and anchor[3],
+        x = anchor and anchor[4], y = anchor and anchor[5],
+        casting = casting and casting[1] or false, inDefaultPosition = self:InDefaultPosition(),
+    }
+    table.insert(self.moved, 1, record)
+    self.moved[9] = nil
+    ns:Log("bagbar_moved_by", record)
+    if not hinted and record.inDefaultPosition then
+        hinted = true
+        ns:Print("the game re-anchors the bag buttons with its own bars (in a fight too) while the Bags bar sits in Edit Mode's default spot."
+            .. " Drag the Bags bar once in Edit Mode and it stays docked under the bag window.")
+    end
+end
+
 function BagBar:Describe()
     return {
         state = self.state, mode = ns:GetOption("bagBar"), shown = ns:GetOption("bagBarShown"),
         hooks = self.hooks, arrow = toggle ~= nil and toggle:IsShown() or false,
+        inDefaultPosition = self:InDefaultPosition(), moved = self.moved,
     }
 end
 
@@ -273,6 +318,11 @@ ns:Listen("LOGIN", function()
                 BagBar.hooks[name] = true
             end
         end
+    end
+    -- Edit Mode's own trigger for re-stacking its action bars: the bar may have been moved off the dock
+    if type(EventRegistry) == "table" and type(EventRegistry.RegisterCallback) == "function" then
+        EventRegistry:RegisterCallback("EditModeManager.UpdateBottomActionBarPositions", apply, BagBar)
+        BagBar.hooks["EditModeManager.UpdateBottomActionBarPositions"] = true
     end
     apply()
 end)
