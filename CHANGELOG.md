@@ -1,5 +1,11 @@
 # AKForeverBags
 
+## 0.4.1
+
+- **Works the same without a reagent pouch.** With no pouch equipped (or its window not open), the sort's pins
+  stopped with "the bag window's grid is not known" and `/fbags order top` was ignored. Both now work on the
+  backpack alone, and taking a pouch off puts everything of the merge back.
+
 ## 0.4.0
 
 - **The reagent pouch first, pins at the bottom - around the client's sort.** `/fbags sort` fills the

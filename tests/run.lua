@@ -397,7 +397,7 @@ scenario("nothing to merge: separate bag windows, no reagent bag, a client witho
     ns = start({ reagentSlots = 0 })
     Mock.touched = {}
     Mock.openAllBags()
-    equal(ns.Reagents.state, "the reagent bag is not open")
+    equal(ns.Reagents.state, "no reagent bag: the backpack alone")
     equal(#Mock.touched, 0, table.concat(Mock.touched, ", "))
 
     ns = start({ reagentSlots = 37 }) -- a big one: 4 cells of Blizzard's top row + 33 -> 4 more rows
@@ -1052,6 +1052,64 @@ scenario("sort: item info the client refuses stops the run cleanly, nothing half
     equal(Mock.cursorHeld(), false)
     Mock.itemInfoRaises(false)
 end)
+scenario("no reagent pouch: the bags work the same without one - /fbags order top, the sort with its pins, a pouch taken off or put on again", function()
+    local ns = start({ reagentSlots = 0 }) -- a shaman: the totems are pinned out of the box
+    Mock.placeItem(1, 3, 5175, "Earth Totem")
+    Mock.placeItem(2, 7, 5176, "Fire Totem")
+    Mock.placeItem(0, 1, 2589, "Linen Cloth")
+    local combined = ContainerFrameCombinedBags
+    local open = Mock.reads
+    Mock.openAllBags()
+    equal(ns.Reagents.state, "no reagent bag: the backpack alone")
+    equal(combined:GetHeight(), Mock.combinedHeight(), "Blizzard's height")
+    check(not AKForeverBagsReagentSlots or not AKForeverBagsReagentSlots:IsShown(), "no slot backgrounds")
+    check(Mock.reads - open <= 120, "opening costs no more than with a pouch: " .. (Mock.reads - open) .. " reads")
+
+    -- the sort: no pouch to fill, the client's sort, then the pins at the bottom right
+    SlashCmdList.AKFOREVERBAGS("sort")
+    local rounds = 0
+    while ns.Sort.state ~= "done" and not ns.Sort.state:find("^stopped") and rounds < 16 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    local bottom = ns.Reagents:BottomCells(2)
+    check(bottom, "the bottom cells are known without a pouch")
+    equal(Mock.itemAt(bottom[1].bag, bottom[1].slot), 5175, "Earth Totem at the very bottom right")
+    equal(Mock.itemAt(bottom[2].bag, bottom[2].slot), 5176, "Fire Totem beside it")
+
+    -- /fbags order top: mirrored, and again after Blizzard lays the window out
+    SlashCmdList.AKFOREVERBAGS("order top")
+    local slots = #combined.Items
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), slots + 1 - index, "mirrored: normal slot " .. index)
+    end
+    Mock.closeAllBags(); Mock.openAllBags()
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), slots + 1 - index, "mirrored again: normal slot " .. index)
+    end
+    bottom = ns.Reagents:BottomCells(1)
+    local last = combined.Items[slots]
+    equal(bottom[1].bag, last:GetBagID(), "cell 1 is the bottom right of the mirrored grid: the last slot's bag")
+    equal(bottom[1].slot, last:GetID(), "... and slot")
+    SlashCmdList.AKFOREVERBAGS("order bottom")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), index, "Blizzard's order again: slot " .. index)
+    end
+
+    -- a pouch put on: merged as ever; taken off again: the backpack alone, Blizzard's height, order kept
+    Mock.state.reagentSlots = 12
+    Mock.closeAllBags(); Mock.openAllBags()
+    equal(ns.Reagents.state, "merged: 12 reagent slots after Blizzard's " .. slots .. ", 1 more row")
+    SlashCmdList.AKFOREVERBAGS("order top")
+    Mock.closeAllBags()
+    Mock.state.reagentSlots = 0
+    Mock.openAllBags()
+    equal(ns.Reagents.state, "no reagent bag: the backpack alone")
+    equal(combined:GetHeight(), Mock.combinedHeight(), "no extra rows left behind")
+    check(not AKForeverBagsReagentSlots:IsShown(), "the slot backgrounds went with the pouch")
+    for index, button in ipairs(combined.Items) do
+        equal(cellOf(button), slots + 1 - index, "order top still holds: slot " .. index)
+    end
+end)
+
 scenario("/fbags reagents bottom: the reagent rows at the bottom of the window - Blizzard's buttons moved up by that many, the same after a layout of Blizzard's, a pass of ours and a bag swap, and back on top on request", function()
     local ns = start() -- 12 reagent slots: a full bottom row of them, two more at the right of the next
     Mock.openAllBags()

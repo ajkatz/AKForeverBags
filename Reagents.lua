@@ -478,6 +478,41 @@ local function unmerge(combined, reagent, why)
     setState(why)
 end
 
+-- No reagent slots to merge (no pouch, or its window not open): the backpack alone still gets what is ours -
+-- /fbags order top - and anything of a merge before is put back. The grid is read only when there is a
+-- layout of ours to make or undo; otherwise Blizzard's stands, and Reagents:Cells() reads it when the sort
+-- asks (a read of every button at every opening would be spent for nothing).
+local function backpackOnly(combined, reagent, why)
+    if backdrop then
+        backdrop:Hide()
+    end
+    if shown(reagent) == true then
+        local buttons = collectButtons(reagent)
+        if buttons then
+            sendButtonsHome(reagent, buttons)
+        end
+    end
+    if appliedHeight then
+        setGrowth(combined, 0)
+    end
+    Reagents.lastGrid = nil
+    if ourLayout or ns:GetOption("order") == "top" then
+        local grid = readGrid(combined)
+        if not grid then
+            return unmerge(combined, reagent, "the bag window's grid is not one we know - left alone")
+        end
+        applyLayout(grid, 0)
+        Reagents.lastGrid = grid
+    end
+    Reagents.moved = 0
+    setState(why)
+end
+
+local function hasReagentBag()
+    local slots = ns.Readable(C_Container and C_Container.GetContainerNumSlots, REAGENT_BAG)
+    return not (slots and type(slots[1]) == "number" and slots[1] <= 0)
+end
+
 ------------------------------------------------------------------------
 -- Apply: idempotent. Runs after Blizzard laid out a bag window, on a mouse button in the bag window, on
 -- an option change and at the end of a fight - never on a timer.
@@ -513,12 +548,19 @@ function Reagents:Apply()
     if not usingCombinedBags() then
         return unmerge(combined, reagent, "separate bag windows: nothing to merge into")
     end
+    -- with or without a reagent pouch, /fbags order and the sort's pins work on the backpack
+    if not hasReagentBag() then
+        return backpackOnly(combined, reagent, "no reagent bag: the backpack alone")
+    end
     if not (reagentShown and bag[1] == REAGENT_BAG) then
-        return unmerge(combined, reagent, "the reagent bag is not open")
+        return backpackOnly(combined, reagent, "the reagent bag is not open")
     end
     local buttons = collectButtons(reagent)
-    if not buttons or #buttons == 0 then
-        return unmerge(combined, reagent, buttons and "the reagent bag has no slots" or "unreadable - left alone")
+    if not buttons then
+        return unmerge(combined, reagent, "unreadable - left alone")
+    end
+    if #buttons == 0 then
+        return backpackOnly(combined, reagent, "the reagent bag has no slots")
     end
     if blockedByCombat(buttons[1].button) then
         pending = true
@@ -755,6 +797,13 @@ ns:RegisterCommand("status", "what is being done with the reagent slots right no
 ------------------------------------------------------------------------
 function Reagents:Cells()
     local grid = self.lastGrid
+    if not grid then
+        -- the backpack alone, in Blizzard's own layout: nothing of ours read it, so it is read now
+        local combined = _G.ContainerFrameCombinedBags
+        if isFrame(combined) and shown(combined) == true and usingCombinedBags() then
+            grid = readGrid(combined)
+        end
+    end
     if not grid or type(grid.cells) ~= "table" then
         return nil, "the bag window's grid is not known - open your bags"
     end
