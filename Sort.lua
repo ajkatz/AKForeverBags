@@ -194,12 +194,23 @@ local function readCells()
 end
 
 -- where everything must go: the pinned items to cells 1..n in pin order (several stacks of one pin in
--- the order they stand), everything else - items and empty slots alike - after them, in the order it has
+-- the order they stand), then the items marked offspec (Offspec.lua) in the order they stand - a group
+-- of their own right above the pins - then everything else, items and empty slots alike, in the order it has
 local function targetOf(cells)
     local isPinned, target, next = {}, {}, 0
     for _, pin in ipairs(Sort:GetPins()) do
         for index, cell in ipairs(cells) do
             if cell.item and not isPinned[index] and pinMatches(pin, cell.item) then
+                isPinned[index] = true
+                next = next + 1
+                target[index] = next
+            end
+        end
+    end
+    local offspec = ns.Offspec
+    if offspec then
+        for index, cell in ipairs(cells) do
+            if cell.item and not isPinned[index] and offspec:IsMarked(cell.item.itemID) then
                 isPinned[index] = true
                 next = next + 1
                 target[index] = next

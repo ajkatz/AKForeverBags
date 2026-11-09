@@ -191,6 +191,15 @@ of simultaneous swaps on disjoint slots (any permutation is the product of two i
 waited out, using nothing but the client's own item-moving calls. A shaman starts with the four totems
 pinned.
 
+**Offspec gear** is a group of its own, right above the pins. Bind "Mark / unmark the item under the mouse
+as offspec" (Key Bindings > AddOns > AKForeverBags), hold the mouse over the item in your bags and press
+the key: every copy of that item is marked (kept per character), wears a violet border, and the sort puts
+the marked items together just above the pinned ones. The key only reads what is under the mouse - no
+Blizzard button is hooked or covered - and the borders are drawn on a frame of ours. Without a key
+binding: click the small button hanging under the bag window's bottom-left corner (mark mode - it glows violet), then
+left-click items to mark or unmark them; the client picks the item up on that click and the addon puts it
+straight back. The button again, or closing the bags, ends mark mode.
+
 `/fbags sort` runs the whole pass. And every sort the client runs on its own - Blizzard's button, `/sort` -
 is followed by the same pass minus the sort itself: the pouch fill (with one more sort of the client's to
 close the gaps, if anything went in), then the pins. That is a post-hook on `C_Container.SortBags`;
@@ -202,6 +211,7 @@ close the gaps, if anything went in), then the pins. That is a post-hook on `C_C
 /fbags pin <name or link>  keep that item at the bottom (first pinned = bottom-right corner)
 /fbags unpin <name>        forget it
 /fbags pins                what is pinned
+/fbags offspec             what is marked offspec ('offspec clear' unmarks all; marking is the key)
 ```
 
 Nothing runs in a fight, and nothing starts while the cursor holds something.

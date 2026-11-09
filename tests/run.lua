@@ -1234,6 +1234,160 @@ scenario("reagents bottom: the sort's pinned items still go to the bottom of the
     equal(#Mock.errors, 0)
 end)
 
+-- the combined window's button that shows a bag slot (the grid's cells carry their buttons)
+local function buttonFor(ns, bag, slot)
+    for _, cell in ipairs(ns.Reagents:Cells()) do
+        if cell.bag == bag and cell.slot == slot then
+            return cell.button
+        end
+    end
+end
+
+scenario("offspec: the key over an item in the bags marks it (every copy, by item id) and draws a border of ours on it; the key again unmarks it; no item under the mouse says what to do", function()
+    local ns = start()
+    Mock.placeItem(1, 4, 4114, "Lion's Gloves")
+    Mock.placeItem(2, 6, 4114, "Lion's Gloves") -- a second copy
+    Mock.placeItem(0, 2, 2589, "Linen Cloth")
+    Mock.openAllBags()
+    Mock.mouseFocus = buttonFor(ns, 1, 4)
+    AKForeverBags_ToggleOffspec()
+    equal(ns.Offspec:IsMarked(4114), true, "marked by item id")
+    check(printed("marked offspec"), "says so in chat")
+    equal(ns.Offspec:Report().borders, 2, "both copies wear the border")
+    local holder = _G.AKForeverBagsOffspecMarks
+    check(holder and holder:GetParent() == ContainerFrameCombinedBags, "the borders are on a frame of ours on the bag window")
+    check(holder:GetFrameLevel() > buttonFor(ns, 1, 4):GetFrameLevel(), "drawn above the item buttons")
+    equal(type(BINDING_NAME_AKFOREVERBAGS_OFFSPEC), "string", "the key has a name in Key Bindings")
+
+    AKForeverBags_ToggleOffspec()
+    equal(ns.Offspec:IsMarked(4114), false, "the key again unmarks it")
+    equal(ns.Offspec:Report().borders, 0, "and the borders go")
+
+    Mock.mouseFocus = ContainerFrameCombinedBags -- not an item
+    AKForeverBags_ToggleOffspec()
+    check(printed("hold the mouse over an item"), "the hint")
+    Mock.mouseFocus = buttonFor(ns, 3, 1) -- an empty slot
+    AKForeverBags_ToggleOffspec()
+    check(printed("no item in that slot"), "an empty slot says so")
+    equal(ns.Offspec:Count(), 0)
+    equal(#Mock.taintViolations, 0); equal(#Mock.errors, 0)
+end)
+
+scenario("offspec: after a sort the marked gear is a group of its own right above the pins - the totems keep the very bottom - and everything else keeps its order", function()
+    local ns = start() -- a shaman: the totems are pinned out of the box
+    for i = 1, 6 do Mock.placeItem(1, i, 1000 + i, "Item " .. i) end
+    Mock.placeItem(0, 3, 5175, "Earth Totem")
+    Mock.placeItem(2, 2, 4114, "Lion's Gloves")
+    Mock.placeItem(2, 5, 3000, "Spirit Staff")
+    Mock.openAllBags()
+    Mock.mouseFocus = buttonFor(ns, 2, 2); AKForeverBags_ToggleOffspec()
+    Mock.mouseFocus = buttonFor(ns, 2, 5); AKForeverBags_ToggleOffspec()
+    equal(ns.Offspec:Count(), 2)
+    SlashCmdList.AKFOREVERBAGS("sort")
+    Mock.settle() -- the client's sort lands
+    local rounds = 0
+    while ns.Sort.state == "pinning" and rounds < 6 do Mock.settle(); rounds = rounds + 1 end
+    equal(ns.Sort.state, "done")
+    local cells = ns.Reagents:Cells()
+    local function at(index) return Mock.itemAt(cells[index].bag, cells[index].slot) end
+    equal(at(1), 5175, "the totem at the very bottom")
+    equal(at(2), 3000, "then the offspec group, in the order the sort left it")
+    equal(at(3), 4114, "both marked items together")
+    for i = 1, 6 do
+        equal(at(3 + i), 1000 + i, "item " .. i .. " kept its order above them")
+    end
+    equal(ns.Offspec:Report().borders, 2, "the borders followed the items")
+    equal(Mock.cursorHeld(), false)
+    equal(#Mock.taintViolations, 0); equal(#Mock.forbiddenCalls, 0); equal(#Mock.errors, 0)
+end)
+
+scenario("offspec: nothing marked costs nothing - a bag update reads nothing for it; the list and 'clear'", function()
+    local ns = start()
+    Mock.placeItem(1, 1, 4114, "Lion's Gloves")
+    Mock.openAllBags()
+    local before = Mock.reads
+    Mock.fire("BAG_UPDATE_DELAYED")
+    equal(Mock.reads - before, 0, "no reads while nothing is marked")
+    SlashCmdList.AKFOREVERBAGS("offspec")
+    check(printed("nothing marked"), "the empty list explains the key")
+    Mock.mouseFocus = buttonFor(ns, 1, 1); AKForeverBags_ToggleOffspec()
+    SlashCmdList.AKFOREVERBAGS("offspec")
+    check(printed("Lion's Gloves (4114)"), "the list names it")
+    SlashCmdList.AKFOREVERBAGS("offspec clear")
+    equal(ns.Offspec:Count(), 0, "cleared")
+    equal(ns.Offspec:Report().borders, 0, "and no border left")
+    equal(#Mock.errors, 0)
+end)
+
+scenario("offspec mark mode: a button of ours hanging under the bag window's bottom-left corner (inside, that corner is the gold display's); on, a plain left-click on an item marks it and the item goes straight back to its slot - whichever comes first, the event or Blizzard's pickup", function()
+    local ns = start()
+    Mock.placeItem(1, 4, 4114, "Lion's Gloves")
+    Mock.placeItem(2, 6, 3000, "Spirit Staff")
+    Mock.openAllBags()
+    local button = _G.AKForeverBagsOffspecMode
+    check(button and button:GetParent() == ContainerFrameCombinedBags, "our button, a child of the bag window")
+    local point, relativeTo, relativePoint, _, y = button:GetPoint(1)
+    equal(point, "TOPLEFT", "its top edge"); equal(relativePoint, "BOTTOMLEFT", "on the window's bottom-left corner")
+    check(relativeTo == ContainerFrameCombinedBags and y < 0, "hanging below the window, not inside it")
+    equal(ns.Offspec.markMode, false, "off to begin with")
+    equal(ns.Offspec:Report().icon, "Interface\\Buttons\\LockButton-Locked-Up", "a padlock (the file, where the client knows no lock atlas)")
+    Mock.runScript(button, "OnClick")
+    equal(ns.Offspec.markMode, true, "a click turns mark mode on")
+
+    -- the event first, then Blizzard's OnClick picks the item up, then the button comes up
+    Mock.mouseFocus = buttonFor(ns, 1, 4)
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+    C_Container.PickupContainerItem(1, 4)
+    Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    equal(ns.Offspec:IsMarked(4114), true, "marked")
+    equal(Mock.cursorHeld(), false, "the item is not left on the cursor")
+    equal(Mock.itemAt(1, 4), 4114, "it is back in its slot")
+
+    -- Blizzard's pickup after the button-up event: the frame-later look puts it back
+    Mock.mouseFocus = buttonFor(ns, 2, 6)
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton")
+    Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    C_Container.PickupContainerItem(2, 6)
+    Mock.advance(0.01)
+    equal(ns.Offspec:IsMarked(3000), true)
+    equal(Mock.cursorHeld(), false, "put back a frame later")
+    equal(Mock.itemAt(2, 6), 3000)
+
+    -- the same item again unmarks it
+    Mock.mouseFocus = buttonFor(ns, 1, 4)
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton"); C_Container.PickupContainerItem(1, 4); Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    equal(ns.Offspec:IsMarked(4114), false, "a second click unmarks")
+    equal(Mock.cursorHeld(), false)
+    equal(#Mock.taintViolations, 0); equal(#Mock.errors, 0)
+end)
+
+scenario("offspec mark mode leaves alone: a right-click, a click with a modifier, a click while the hand is full, any click with mark mode off; the bag window closing ends it", function()
+    local ns = start()
+    Mock.placeItem(1, 4, 4114, "Lion's Gloves")
+    Mock.placeItem(0, 1, 2589, "Linen Cloth")
+    Mock.openAllBags()
+    Mock.mouseFocus = buttonFor(ns, 1, 4)
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton"); Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    equal(ns.Offspec:Count(), 0, "mark mode off: nothing")
+
+    Mock.runScript(_G.AKForeverBagsOffspecMode, "OnClick")
+    Mock.fire("GLOBAL_MOUSE_DOWN", "RightButton"); Mock.fire("GLOBAL_MOUSE_UP", "RightButton")
+    equal(ns.Offspec:Count(), 0, "a right-click is Blizzard's")
+    _G.IsModifierKeyDown = function() return true end
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton"); Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    _G.IsModifierKeyDown = nil
+    equal(ns.Offspec:Count(), 0, "a modified click is Blizzard's")
+    C_Container.PickupContainerItem(0, 1) -- a hand full of cloth: the click is a drop
+    Mock.fire("GLOBAL_MOUSE_DOWN", "LeftButton"); Mock.fire("GLOBAL_MOUSE_UP", "LeftButton")
+    equal(ns.Offspec:Count(), 0, "a drop is not a mark")
+    equal(Mock.cursorHeld(), true, "and the cloth stays in hand - not ours to put back")
+    ClearCursor()
+
+    Mock.closeAllBags()
+    equal(ns.Offspec.markMode, false, "closing the bags ends mark mode")
+    equal(#Mock.taintViolations, 0); equal(#Mock.errors, 0)
+end)
+
 Mock.realPrint(string.format("\n%d passed, %d failed", passed, #failures))
 if #failures > 0 then
     os.exit(1)

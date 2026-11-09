@@ -512,7 +512,13 @@ function Mock.install(options)
             state.sortPending = true
         end,
     })
-    global("GetCursorInfo", function() return state.cursor and "item" or nil end)
+    global("GetCursorInfo", function() -- "item", itemID - as the client answers
+        if not state.cursor then
+            return nil
+        end
+        local item = contents(state.cursor.bag)[state.cursor.slot]
+        return "item", item and item.itemID
+    end)
     global("ClearCursor", function()
         if state.cursor then
             local item = contents(state.cursor.bag)[state.cursor.slot]

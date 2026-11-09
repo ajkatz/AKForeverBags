@@ -38,6 +38,7 @@ normal slots, each with a green slot background so you can tell them apart.
 | `/fbags reagents top` / `bottom` | the reagent slots after the last of Blizzard's, at the top (default) / in the bottom rows, Blizzard's slots above them |
 | `/fbags sort` | the reagent pouch filled first, the client's sort, then your pinned items at the very bottom. The client's own sort (its button, `/sort`) gets the pouch fill and the pins too; `/fbags sort auto off` leaves it alone |
 | `/fbags pin <item>` / `unpin <item>` / `pins` | what stays at the bottom after a sort (a shaman's four totems out of the box) |
+| `/fbags offspec` / `offspec clear` | the gear marked offspec - mark it with a key over the item (Key Bindings > AddOns > AKForeverBags), or with the mark-mode button under the bag window's bottom-left corner; after a sort it stands as a group right above the pins, with a violet border |
 | `/fbags bagbar window` / `show` / `hide` | the bag buttons docked under the bag window (default) / in Blizzard's place, always / away |
 | `/fbags bagbar fold` / `unfold` | what the arrow under the bag window's corner does; remembered over a logout |
 | `/fbags status`, `/fbags diag` | what it is doing; a report for bug reports |

@@ -1,0 +1,5 @@
+<Bindings>
+	<!-- Marks or unmarks the item under the mouse as offspec (Offspec.lua): read only - what is under the mouse,
+	     its bag slot and its item - so no Blizzard button is hooked or covered. -->
+	<Binding name="AKFOREVERBAGS_OFFSPEC" header="AKFOREVERBAGS" category="ADDONS">AKForeverBags_ToggleOffspec()</Binding>
+</Bindings>

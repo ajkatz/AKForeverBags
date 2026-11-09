@@ -1,5 +1,19 @@
 # AKForeverBags
 
+## 0.5.0
+
+- **Offspec gear: one key marks it, the sort keeps it together.** Bind "Mark / unmark the item under the
+  mouse as offspec" (Key Bindings > AddOns > AKForeverBags), hold the mouse over a piece of gear in your
+  bags and press it. Every copy of that item counts, and the mark is kept per character. After a sort
+  the marked items stand as a group of their own right above the pinned items (a shaman's totems keep
+  the very bottom), each with a violet border so the group stands out. The key again unmarks it;
+  `/fbags offspec` lists them, `/fbags offspec clear` unmarks them all. Nothing of Blizzard's is hooked
+  or covered: the key only reads what is under the mouse, and the borders are drawn on a frame of ours.
+- **No key binding needed: mark mode.** A small button hanging under the bag window's bottom-left corner turns mark mode on
+  (it glows violet). Left-click items to mark or unmark them - each goes straight back to its slot -
+  and click the button again, or close the bags, to finish. Right-clicks and clicks with a modifier
+  still do what they always do.
+
 ## 0.4.1
 
 - **Works the same without a reagent pouch.** With no pouch equipped (or its window not open), the sort's pins
