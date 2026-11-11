@@ -196,7 +196,7 @@ function Diagnostics:Collect()
         windows = {},
         header = describeHeader(),
         sort = ns.Sort and ns.Sort:Report() or "absent",
-        offspec = ns.Offspec and ns.Offspec:Report() or "absent",
+        labels = ns.Labels and ns.Labels:Report() or "absent",
         layout = { order = ns.Reagents and ns.Reagents.order, reagentsAt = ns.Reagents and ns.Reagents.reagentsAt },
         errors = {},
         blockedActions = ns.blockedActions,

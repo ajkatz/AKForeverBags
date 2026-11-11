@@ -187,6 +187,7 @@ local OPTION_DEFAULTS = {
     bagBarShown = true,         -- ... and while docked: shown, or folded away behind the little arrow
     reagentsAt = "top",         -- the reagent slots: "top" (after the last of Blizzard's) | "bottom" (the bottom rows, Blizzard's moved up)
     sortFollow = true,          -- the client's own sort (Blizzard's button, /sort) is followed by the pouch fill and the pins
+    labelsAuto = true,          -- consumables, trade goods, quest items, junk and profession tools label themselves (Labels.lua)
     order = "bottom",           -- the backpack in the combined window: "bottom" (Blizzard's, since build 70291) | "top" (as before it)
 }
 

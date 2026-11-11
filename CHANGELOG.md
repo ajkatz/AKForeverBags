@@ -2,17 +2,24 @@
 
 ## 0.5.0
 
-- **Offspec gear: one key marks it, the sort keeps it together.** Bind "Mark / unmark the item under the
-  mouse as offspec" (Key Bindings > AddOns > AKForeverBags), hold the mouse over a piece of gear in your
-  bags and press it. Every copy of that item counts, and the mark is kept per character. After a sort
-  the marked items stand as a group of their own right above the pinned items (a shaman's totems keep
-  the very bottom), each with a violet border so the group stands out. The key again unmarks it;
-  `/fbags offspec` lists them, `/fbags offspec clear` unmarks them all. Nothing of Blizzard's is hooked
-  or covered: the key only reads what is under the mouse, and the borders are drawn on a frame of ours.
-- **No key binding needed: mark mode.** A small button hanging under the bag window's bottom-left corner turns mark mode on
-  (it glows violet). Left-click items to mark or unmark them - each goes straight back to its slot -
-  and click the button again, or close the bags, to finish. Right-clicks and clicks with a modifier
-  still do what they always do.
+- **The sort no longer gets stuck.** A sort with nothing to move (the bags already in order) sends no word from
+  the client, and the run waited for it for good - every sort after it, Blizzard's button or `/fbags sort`, was
+  turned away until a reload. Now the run goes on a moment later all the same.
+- **Labels: every item can carry one, and the sort stacks them in groups.** From the bottom up: Permanent
+  (the pinned totems), Profession tools, Main spec, Off spec, Trade goods, Consumables, Quest items; then
+  everything unlabelled, as the sort left it; Junk (greys) in the top cells, handy for selling.
+- **Most label themselves.** Trade goods, consumables, quest items and junk are read from the item; the old
+  profession tools (mining pick, skinning knife, hammer, spanner, runed rods, fishing poles...) are known
+  by name; Permanent is the pin list. Main spec and Off spec you set by hand. A label you set always wins -
+  "No label" too, which keeps an item out of its automatic group. `/fbags labels auto off` turns the
+  automatic ones off.
+- **The padlock.** A small padlock hangs under the bag window's bottom-left corner. Click it for the list of
+  labels, pick one, and left-click items to give them that label - each goes straight back to its slot;
+  clicking an item that already has it takes it off. The padlock glows in the label's colour while you
+  label; the padlock again, or closing the bags, finishes. A key binding (Key Bindings > AddOns >
+  AKForeverBags) does the same for the item under the mouse. Labels you set by hand wear a border in the
+  label's colour, and so do trade goods (cyan) and quest items (orange) all by themselves. Every copy of an item counts, kept per character. `/fbags labels` lists them,
+  `/fbags labels clear` takes them all off. Nothing of Blizzard's is hooked or covered.
 
 ## 0.4.1
 

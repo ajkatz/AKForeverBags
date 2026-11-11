@@ -655,7 +655,7 @@ local function apply()
         work.layoutMs = work.layoutMs + ms
         work.slowestLayoutMs = math.max(work.slowestLayoutMs, ms)
     end
-    ns:Fire("LAID_OUT") -- (Offspec.lua puts its borders right; nothing marked = no work)
+    ns:Fire("LAID_OUT") -- (Labels.lua puts its borders right; nothing labelled by hand = no work)
 end
 
 -- A mouse button in the bag window changes ONE thing: which of the two windows is in front. So that is all

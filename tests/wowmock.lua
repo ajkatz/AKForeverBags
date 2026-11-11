@@ -426,17 +426,24 @@ function Mock.install(options)
     Mock.sortCalls = 0
     local REAGENT_FAMILY = 0x8000 -- whatever bit the client uses, the addon reads it rather than knowing it
     state.itemFamilies = {}
+    state.itemClasses = {} -- [itemID] = { classID, subclassID }; anything else answers as armour (class 4)
     function Mock.placeItem(bag, slot, itemID, name, flags)
-        contents(bag)[slot] = { itemID = itemID, itemName = name }
+        contents(bag)[slot] = { itemID = itemID, itemName = name, quality = flags and flags.quality }
+        if flags and flags.class then
+            state.itemClasses[itemID] = { flags.class, flags.subclass or 0 }
+        end
         if flags and flags.reagent then
             state.itemFamilies[itemID] = REAGENT_FAMILY
         end
     end
     global("bit", { band = function(a, b) return a & b end })
-    if type(_G.C_Item) == "table" then
-        _G.C_Item.GetItemFamily = function(itemID) return state.itemFamilies[itemID] or 0 end
-    else
-        global("C_Item", { GetItemFamily = function(itemID) return state.itemFamilies[itemID] or 0 end })
+    if type(_G.C_Item) ~= "table" then
+        global("C_Item", {})
+    end
+    _G.C_Item.GetItemFamily = function(itemID) return state.itemFamilies[itemID] or 0 end
+    _G.C_Item.GetItemInfoInstant = function(itemID) -- itemID, type, subType, equipLoc, icon, classID, subclassID
+        local class = state.itemClasses[itemID] or { 4, 0 }
+        return itemID, "Type", "Subtype", "", 134400, class[1], class[2]
     end
     function Mock.itemAt(bag, slot)
         local item = contents(bag)[slot]
@@ -472,7 +479,7 @@ function Mock.install(options)
                 return nil
             end
             return { itemID = item.itemID, itemName = item.itemName, isLocked = item.locked == true, stackCount = 1,
-                hyperlink = "|Hitem:" .. item.itemID .. "|h[" .. item.itemName .. "]|h", quality = 1 }
+                hyperlink = "|Hitem:" .. item.itemID .. "|h[" .. item.itemName .. "]|h", quality = item.quality or 1 }
         end,
         GetContainerItemID = function(bag, slot)
             local item = contents(bag)[slot]

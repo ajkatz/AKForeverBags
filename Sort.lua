@@ -193,34 +193,60 @@ local function readCells()
     return cells, nil, locked
 end
 
--- where everything must go: the pinned items to cells 1..n in pin order (several stacks of one pin in
--- the order they stand), then the items marked offspec (Offspec.lua) in the order they stand - a group
--- of their own right above the pins - then everything else, items and empty slots alike, in the order it has
+function Sort:IsPinned(info)
+    return isPinnedItem(info)
+end
+
+-- where everything must go, bottom up: the pinned items to cells 1..n in pin order (several stacks of one
+-- pin in the order they stand), then each label's group in the labels' order (Labels.lua: the rest of
+-- Permanent, Profession tools, Main spec, Off spec, Trade goods, Consumables, Quest items), each in the
+-- order it stands; then everything else, items and empty slots alike, in the order it has; Junk on top
 local function targetOf(cells)
-    local isPinned, target, next = {}, {}, 0
+    local placed, target, next = {}, {}, 0
+    local labels = ns.Labels
+    local labelOf = {}
+    if labels then
+        for index, cell in ipairs(cells) do
+            labelOf[index] = cell.item and labels:Of(cell.item) or nil
+        end
+    end
+    local function take(index)
+        placed[index] = true
+        next = next + 1
+        target[index] = next
+    end
     for _, pin in ipairs(Sort:GetPins()) do
         for index, cell in ipairs(cells) do
-            if cell.item and not isPinned[index] and pinMatches(pin, cell.item) then
-                isPinned[index] = true
-                next = next + 1
-                target[index] = next
+            -- a pinned item labelled otherwise by hand goes with that label instead
+            if cell.item and not placed[index] and pinMatches(pin, cell.item) and (not labels or labelOf[index] == "permanent") then
+                take(index)
             end
         end
     end
-    local offspec = ns.Offspec
-    if offspec then
-        for index, cell in ipairs(cells) do
-            if cell.item and not isPinned[index] and offspec:IsMarked(cell.item.itemID) then
-                isPinned[index] = true
-                next = next + 1
-                target[index] = next
+    local topKeys = {}
+    for _, label in ipairs(labels and labels.LIST or {}) do
+        if label.top then
+            topKeys[label.key] = true
+        else
+            for index = 1, #cells do
+                if not placed[index] and labelOf[index] == label.key then
+                    take(index)
+                end
             end
         end
     end
     for index = 1, #cells do
-        if not isPinned[index] then
-            next = next + 1
-            target[index] = next
+        if not placed[index] and not topKeys[labelOf[index] or ""] then
+            take(index)
+        end
+    end
+    for _, label in ipairs(labels and labels.LIST or {}) do
+        if label.top then
+            for index = 1, #cells do
+                if not placed[index] and labelOf[index] == label.key then
+                    take(index)
+                end
+            end
         end
     end
     return target, next
@@ -362,6 +388,27 @@ local function doMove(move)
     return true
 end
 
+-- the client's sort lands with BAG_UPDATE_DELAYED - but a sort that has nothing to move (the bags already in
+-- its order) sends no event at all, and the run sat in "sorting" for good, turning every later sort away (the
+-- user, 2026-11-10: "right now my bags sort is broken"; the saved session: state "sorting", 0 moves). So one
+-- timer per sort: still sorting a moment later = it landed quietly, and the run goes on as if the event came.
+local sortToken = 0
+local landedSort -- (defined with the events below)
+local function awaitSort()
+    waitingSince = now()
+    sortToken = sortToken + 1
+    local token = sortToken
+    if C_Timer and C_Timer.After then
+        C_Timer.After(SETTLE_SECONDS * 2, function()
+            if token == sortToken and Sort.state == "sorting" then
+                Sort.stats.quietSorts = (Sort.stats.quietSorts or 0) + 1
+                ns:Log("sort_quiet", "no event from the client's sort: nothing moved, going on")
+                ns.SafeCall(landedSort)
+            end
+        end)
+    end
+end
+
 local function startClientSort()
     local api = C_Container
     setState("sorting")
@@ -371,7 +418,7 @@ local function startClientSort()
     if not ok then
         return stop("SortBags raised")
     end
-    waitingSince = now()
+    awaitSort()
 end
 
 -- FILLING: one move per step, each waited out
@@ -529,10 +576,17 @@ function Sort:Run(from)
 end
 
 -- Blizzard's sort, and every move of ours, ends in BAG_UPDATE_DELAYED
-ns:On("BAG_UPDATE_DELAYED", function()
+landedSort = function()
     if Sort.state == "sorting" then
+        sortToken = sortToken + 1 -- the quiet-sort timer has nothing left to do
         setState(following and "filling" or "pinning") -- a sort of the client's own: the pouch first
         step()
+    end
+end
+
+ns:On("BAG_UPDATE_DELAYED", function()
+    if Sort.state == "sorting" then
+        landedSort()
     elseif Sort.state == "pinning" or Sort.state == "filling" then
         step()
     end
@@ -584,7 +638,7 @@ local function followClientSort()
     following, plan = true, nil
     ns:Log("sort_run", { from = "client", pins = #Sort:GetPins() })
     setState("sorting")
-    waitingSince = now()
+    awaitSort()
 end
 
 ns:Listen("LOGIN", function()
