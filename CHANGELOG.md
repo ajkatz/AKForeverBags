@@ -1,6 +1,6 @@
 # AKForeverBags
 
-## Unreleased
+## 0.5.1
 
 - **Separate bag windows: the backpack key opens every bag.** With the bags shown one window each, B opened only
   the backpack and every other bag needed its own key or F12. Now it runs Blizzard's own *Open All Bags* there
