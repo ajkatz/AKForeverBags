@@ -57,7 +57,7 @@ Blizzard's slots move up by that many - asked for on CurseForge.)
 |---|---|
 | `/fbags on` / `off` | the merge (default on). Off = Blizzard's separate reagent window, as before |
 | `/fbags show` / `hide` | reagent slots shown in the grid (default) / put away - the bag window then looks stock. Remembered over a logout |
-| `/fbags key on` / `off` | the backpack key opens the reagent bag too (default on, see below) |
+| `/fbags key on` / `off` | the backpack key opens all bags: the reagent bag too, and in separate bag windows every bag (default on, see below) |
 | `/fbags order top` / `bottom` | where the backpack stands in the combined window: `bottom` (default) is Blizzard's layout since client build 70291 (Oct 8 2026), `top` the picture before it - the backpack's first slot top left. Blizzard's buttons, only re-anchored, after every layout of Blizzard's |
 | `/fbags reagents top` / `bottom` | where the reagent slots stand: `top` (default) after the last of Blizzard's cells, `bottom` in the bottom rows with Blizzard's slots moved up above them. Composes with `order` |
 | `/fbags status`, `/fbags diag` | what it is doing; a report into the settings file (then `/reload`) |

@@ -611,13 +611,26 @@ end
 ------------------------------------------------------------------------
 local keyOwner = CreateFrame("Frame", "AKForeverBagsKeyOwner")
 
+-- Separate bag windows (the CVar "0"): the backpack key opens only the backpack, and every other bag
+-- wants its own key or F12 - the key opens all of them too (a player on Discord, 2026-11-13: "is there
+-- a way to open the bag ... without pressing f12"). No merge or reagent bag needed for that.
+local function usingSeparateBags()
+    local setting = ns.Readable((C_CVar and C_CVar.GetCVar) or GetCVar, "combinedBags")
+    return setting ~= nil and setting[1] == "0"
+end
+
 local function wantedKeys()
-    if not (ns:GetOption("merge") and ns:GetOption("backpackKeyOpensAll") and usingCombinedBags()) then
+    if not ns:GetOption("backpackKeyOpensAll") then
         return ""
     end
-    local slots = ns.Readable(C_Container and C_Container.GetContainerNumSlots, REAGENT_BAG)
-    if not slots or type(slots[1]) ~= "number" or slots[1] <= 0 then
-        return "" -- no reagent bag (or the client would not say): the key stays what it is
+    if not usingSeparateBags() then
+        if not (ns:GetOption("merge") and usingCombinedBags()) then
+            return "" -- (the setting unreadable: the key stays what it is)
+        end
+        local slots = ns.Readable(C_Container and C_Container.GetContainerNumSlots, REAGENT_BAG)
+        if not slots or type(slots[1]) ~= "number" or slots[1] <= 0 then
+            return "" -- no reagent bag (or the client would not say): the key stays what it is
+        end
     end
     local keys = { GetBindingKey("TOGGLEBACKPACK") }
     table.sort(keys)
@@ -759,7 +772,7 @@ ns:RegisterCommand("hide", "put the reagent slots away (the bag window looks sto
     report()
 end)
 
-ns:RegisterCommand("key", "'on' (default): the backpack key opens the reagent bag too (it runs Blizzard's Open All Bags); 'off': leave the key alone", function(rest)
+ns:RegisterCommand("key", "'on' (default): the backpack key opens all bags - the reagent bag too, and in separate bag windows every bag (Blizzard's Open All Bags); 'off': leave the key alone", function(rest)
     local mode = string.lower(rest or "")
     if mode == "on" or mode == "off" then
         ns:SetOption("backpackKeyOpensAll", mode == "on")

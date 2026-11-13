@@ -18,7 +18,7 @@ normal slots, each with a green slot background so you can tell them apart.
 - **Nothing is re-implemented.** The slots are Blizzard's own item buttons, only moved: using, dragging,
   splitting, selling, linking, searching and sorting work exactly as before - in and out of combat.
 - **One key for everything:** your backpack key opens the reagent bag too (it runs Blizzard's own
-  *Open All Bags*).
+  *Open All Bags*). With separate bag windows it opens every bag - no F12 needed.
 - **Featherweight:** no timers, no polling - it only runs when your bags are laid out or clicked.
 - **The bag buttons, docked under the bag window.** On Forever a bag is swapped by dropping it on a bag slot
   button, and those only live on Blizzard's bag bar at the bottom right - which the combined bag window has

@@ -295,10 +295,35 @@ scenario("the backpack key opens the reagent bag too - through Blizzard's own Op
     SlashCmdList.AKFOREVERBAGS("off")
     equal(Mock.commandFor("N"), "TOGGLEBACKPACK", "merge off: the key is the player's again")
 
-    start({ separateBags = true })
-    equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "separate bag windows: nothing to merge, key untouched")
     start({ reagentSlots = 0 })
     equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "no reagent bag: key untouched")
+    -- the setting unreadable (a secret): hands off
+    ns, state = start({ separateBags = true })
+    state.cvars.combinedBags = Mock.SECRET
+    Mock.fire("CVAR_UPDATE", "combinedBags")
+    equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "combinedBags unreadable: key untouched")
+end)
+
+scenario("separate bag windows: the backpack key opens every bag, not the backpack alone (no F12 needed) - with or without a reagent bag or the merge; /fbags key off leaves it alone", function()
+    local ns, state = start({ separateBags = true })
+    equal(Mock.commandFor("B"), "OPENALLBAGS", "Blizzard's Open All Bags: every bag window")
+    start({ separateBags = true, reagentSlots = 0 })
+    equal(Mock.commandFor("B"), "OPENALLBAGS", "no reagent bag needed")
+    ns, state = start({ separateBags = true })
+    SlashCmdList.AKFOREVERBAGS("off")
+    equal(Mock.commandFor("B"), "OPENALLBAGS", "the merge off: nothing to merge in this view anyway")
+    SlashCmdList.AKFOREVERBAGS("key off")
+    equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "key off: the player's own key")
+    SlashCmdList.AKFOREVERBAGS("key on")
+    equal(Mock.commandFor("B"), "OPENALLBAGS")
+    -- the player switches the view in the bag window's menu: follows, both ways
+    ns, state = start({ reagentSlots = 0 })
+    equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "combined, no reagent bag: untouched")
+    C_CVar.SetCVar("combinedBags", "0")
+    equal(Mock.commandFor("B"), "OPENALLBAGS", "switched to separate bags")
+    C_CVar.SetCVar("combinedBags", "1")
+    equal(Mock.commandFor("B"), "TOGGLEBACKPACK", "and back")
+    equal(#Mock.errors, 0, Mock.errors[1])
 end)
 
 scenario("the backpack button closes only the combined window: no reagent slots are left floating on the screen", function()

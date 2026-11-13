@@ -1,5 +1,11 @@
 # AKForeverBags
 
+## Unreleased
+
+- **Separate bag windows: the backpack key opens every bag.** With the bags shown one window each, B opened only
+  the backpack and every other bag needed its own key or F12. Now it runs Blizzard's own *Open All Bags* there
+  too, reagent bag or not. `/fbags key off` gives you the key back as it was.
+
 ## 0.5.0
 
 - **The sort no longer gets stuck.** A sort with nothing to move (the bags already in order) sends no word from
